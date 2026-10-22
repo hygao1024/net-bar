@@ -9,6 +9,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
     private let preferences = PanelPreferences()
     let menuBarPreferences: MenuBarPreferences
     private(set) var settingsWindow: NSWindow?
+    let networkPanel = NetworkPanelModel()
     private let menuBarMonitor = MenuBarSpeedMonitor()
     private var isAwake = true
     private var isSessionActive = true
@@ -55,7 +56,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
     func preparePanel() {
         guard popover.contentViewController == nil else { return }
         popover.contentViewController = NSHostingController(rootView:
-            TrafficView(monitor: monitor, loginItem: loginItem, preferences: preferences,
+            TrafficView(monitor: monitor, loginItem: loginItem, preferences: preferences, networkPanel: networkPanel,
                         openSettings: { [weak self] in self?.showSettings() }))
     }
 
@@ -72,10 +73,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
 
     func popoverDidShow(_ notification: Notification) {
         loginItem.refresh()
+        networkPanel.start()
         monitor.start()
     }
     func applicationDidBecomeActive(_ notification: Notification) { loginItem.refresh() }
-    func popoverWillClose(_ notification: Notification) { monitor.stop() }
+    func popoverWillClose(_ notification: Notification) {
+        monitor.stop()
+        networkPanel.stop()
+    }
 
     func popoverDidClose(_ notification: Notification) {
         // 关闭完成后再拆除视图，避免影响关闭回调；快速重开时保留新面板。
@@ -141,6 +146,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
     func applicationWillTerminate(_ notification: Notification) {
         menuBarPreferences.onChange = nil
         menuBarMonitor.onChange = nil
+        networkPanel.stop()
         settingsWindow?.close()
         menuBarMonitor.stop()
         monitor.stop()

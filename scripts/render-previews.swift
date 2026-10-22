@@ -27,6 +27,10 @@ struct RenderPreviews {
         let defaults = UserDefaults(suiteName: suite)!
         defer { defaults.removePersistentDomain(forName: suite) }
         let preferences = MenuBarPreferences(defaults: defaults)
+        var network = NetworkPanelSnapshot()
+        network.localAddresses = [LocalAddress(interface: "en0", address: "192.168.1.126", version: .v4)]
+        network.ipv4 = .available(PublicAddress(address: "203.0.113.42", countryCode: "JP"))
+        network.ipv6 = .available(PublicAddress(address: "2001:db8:abcd:1234:5678:90ab:cdef:1234", countryCode: "JP"))
         for dark in [false, true] {
             let mode = dark ? "dark" : "light"
             preferences.appearance = MenuBarAppearance()
@@ -47,17 +51,29 @@ struct RenderPreviews {
             preferences.appearance.fontName = "Menlo-Regular"
             try render(MenuBarSettingsView(preferences: preferences), name: "\(mode)-settings-compact",
                        dark: dark, output: output, width: MenuBarSettingsView.width, height: MenuBarSettingsView.height)
-            try render(TrafficPanel(rows: rows, updatedAt: date, errorMessage: nil), name: "\(mode)-traffic", dark: dark, output: output)
-            try render(TrafficPanel(rows: rows, updatedAt: date, errorMessage: nil, launchAtLogin: .constant(true)), name: "\(mode)-login-enabled", dark: dark, output: output)
-            try render(TrafficPanel(rows: rows, updatedAt: date, errorMessage: nil, launchAtLogin: .constant(true), loginNeedsApproval: true), name: "\(mode)-login-approval", dark: dark, output: output)
+            try render(TrafficPanel(rows: rows, updatedAt: date, errorMessage: nil, network: network), name: "\(mode)-traffic", dark: dark, output: output)
+            try render(TrafficPanel(rows: rows, updatedAt: date, errorMessage: nil, network: network, launchAtLogin: .constant(true)), name: "\(mode)-login-enabled", dark: dark, output: output)
+            try render(TrafficPanel(rows: rows, updatedAt: date, errorMessage: nil, network: network, launchAtLogin: .constant(true), loginNeedsApproval: true), name: "\(mode)-login-approval", dark: dark, output: output)
+            var unavailable = network
+            unavailable.ipv4 = .unavailable
+            unavailable.ipv6 = .unavailable
+            unavailable.localReadFailed = true
+            unavailable.localAddresses = []
+            try render(TrafficPanel(rows: rows, updatedAt: date, errorMessage: nil, network: unavailable),
+                       name: "\(mode)-network-unavailable", dark: dark, output: output)
+            var multi = network
+            multi.localAddresses += [LocalAddress(interface: "en0", address: "fe80::abcd:1234:5678:90ab%en0", version: .v6),
+                                    LocalAddress(interface: "en1", address: "10.0.0.100", version: .v4)]
+            try render(TrafficPanel(rows: rows, updatedAt: date, errorMessage: nil, network: multi),
+                       name: "\(mode)-multiple-interfaces", dark: dark, output: output)
             let overflow = rows + (1...15).map {
                 ProcessTraffic(pid: Int32(2000 + $0), name: "后台进程 \($0)", download: 0, upload: 0)
             }
-            try render(TrafficPanel(rows: overflow, updatedAt: date, errorMessage: nil), name: "\(mode)-overflow", dark: dark, output: output)
+            try render(TrafficPanel(rows: overflow, updatedAt: date, errorMessage: nil, network: network), name: "\(mode)-overflow", dark: dark, output: output)
             try render(TrafficPanel(rows: [], updatedAt: nil, errorMessage: nil), name: "\(mode)-loading", dark: dark, output: output)
             try render(TrafficPanel(rows: [], updatedAt: date, errorMessage: nil), name: "\(mode)-empty", dark: dark, output: output)
             try render(TrafficPanel(rows: [], updatedAt: nil, errorMessage: "采样超时，请重试。"), name: "\(mode)-error", dark: dark, output: output)
-            try render(TrafficPanel(rows: rows, updatedAt: date, errorMessage: nil), name: "\(mode)-contrast", dark: dark, increasedContrast: true, output: output)
+            try render(TrafficPanel(rows: rows, updatedAt: date, errorMessage: nil, network: network), name: "\(mode)-contrast", dark: dark, increasedContrast: true, output: output)
         }
         print("已生成界面预览：\(output.path)")
     }

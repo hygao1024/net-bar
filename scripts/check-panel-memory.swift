@@ -43,7 +43,12 @@ struct CheckPanelMemory {
         popover.contentViewController = NSHostingController(rootView:
             TrafficView(monitor: monitor, loginItem: LoginItemController()))
         #else
-        let delegate = AppDelegate(monitor: monitor)
+        let suite = "NetSpeed.panelMemoryCheck.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let preferences = MenuBarPreferences(defaults: defaults)
+        preferences.appearance.mode = .iconOnly
+        let delegate = AppDelegate(monitor: monitor, menuBarPreferences: preferences)
         let popover = delegate.popover
         precondition(popover.contentViewController == nil, "首次点击前不应创建面板")
         #endif

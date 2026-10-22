@@ -90,6 +90,50 @@ struct CheckMenuBar {
         print("完整样例宽度、两行右对齐、字号尺寸和字形高度验证通过")
     }
 
+    @MainActor private static func checkNetworkPanel(_ delegate: AppDelegate, monitor: TrafficMonitor) async throws {
+        delegate.menuBarPreferences.appearance.mode = .iconOnly
+        delegate.preparePanel()
+        weak var controller = delegate.popover.contentViewController
+        delegate.popoverDidShow(Notification(name: NSPopover.didShowNotification, object: delegate.popover))
+        precondition(delegate.networkPanel.isVisible && monitor.isMonitoring)
+        func finished(_ state: AddressLookupState) -> Bool {
+            switch state {
+            case .available, .unavailable: return true
+            case .idle, .loading: return false
+            }
+        }
+        for _ in 0..<100 {
+            try await Task.sleep(for: .milliseconds(200))
+            let snapshot = delegate.networkPanel.snapshot
+            if !monitor.rows.isEmpty && finished(snapshot.ipv4) && finished(snapshot.ipv6) { break }
+        }
+        let snapshot = delegate.networkPanel.snapshot
+        precondition(!snapshot.localReadFailed, "真实本机接口读取应成功")
+        precondition(finished(snapshot.ipv4) && finished(snapshot.ipv6), "两种公网查询应在时限内独立结束")
+        precondition(!monitor.rows.isEmpty, "真实 nettop 应提供进程样本")
+        func status(_ state: AddressLookupState) -> String {
+            if case .available(let value) = state { return value.countryCode == nil ? "已取得地址" : "已取得地址与地区" }
+            return "暂不可用"
+        }
+        print("真实网络面板：本机地址 \(snapshot.localAddresses.count) 个，IPv4 \(status(snapshot.ipv4))，IPv6 \(status(snapshot.ipv6))")
+        delegate.popoverWillClose(Notification(name: NSPopover.willCloseNotification, object: delegate.popover))
+        delegate.popoverDidClose(Notification(name: NSPopover.didCloseNotification, object: delegate.popover))
+        precondition(controller == nil && !monitor.isMonitoring && monitor.rows.isEmpty)
+        precondition(!delegate.networkPanel.isVisible && delegate.networkPanel.snapshot == NetworkPanelSnapshot())
+        // 强制刷新后立即关闭，验证真实请求取消后的回调不能重新填充面板。
+        delegate.preparePanel()
+        delegate.popoverDidShow(Notification(name: NSPopover.didShowNotification, object: delegate.popover))
+        delegate.networkPanel.refreshAddresses(force: true)
+        try await Task.sleep(for: .milliseconds(50))
+        delegate.popoverWillClose(Notification(name: NSPopover.willCloseNotification, object: delegate.popover))
+        delegate.popoverDidClose(Notification(name: NSPopover.didCloseNotification, object: delegate.popover))
+        try await Task.sleep(for: .milliseconds(1300))
+        precondition(delegate.networkPanel.snapshot == NetworkPanelSnapshot())
+        precondition(!monitor.isMonitoring && delegate.popover.contentViewController == nil)
+        print("真实网络面板关闭、快速重开、请求取消与视图释放验证通过")
+        delegate.menuBarPreferences.appearance = MenuBarAppearance()
+    }
+
     @MainActor static func main() async throws {
         _ = NSApplication.shared
         try checkTextLayout()
@@ -97,7 +141,8 @@ struct CheckMenuBar {
         let defaults = UserDefaults(suiteName: suite)!
         defer { defaults.removePersistentDomain(forName: suite) }
         let preferences = MenuBarPreferences(defaults: defaults)
-        let delegate = AppDelegate(monitor: TrafficMonitor(), menuBarPreferences: preferences)
+        let monitor = TrafficMonitor()
+        let delegate = AppDelegate(monitor: monitor, menuBarPreferences: preferences)
         delegate.applicationDidFinishLaunching(Notification(name: NSApplication.didFinishLaunchingNotification))
         let item = delegate.statusItem!
         defer {
@@ -192,6 +237,10 @@ struct CheckMenuBar {
         precondition(delegate.settingsWindow == nil && releasedSettings == nil, "关闭设置应释放视图")
         precondition(delegate.popover.contentViewController == nil)
         preferences.appearance = MenuBarAppearance()
+
+        if CommandLine.arguments.contains("--network") {
+            try await checkNetworkPanel(delegate, monitor: monitor)
+        }
 
         // 停止真实采样后，对同一个 NSStatusBarButton 渲染确定性的外观样本。
         center.post(name: NSWorkspace.willSleepNotification, object: nil)

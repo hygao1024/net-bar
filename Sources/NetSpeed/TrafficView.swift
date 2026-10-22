@@ -4,7 +4,7 @@ import NetSpeedCore
 
 enum PanelLayout {
     static let width: CGFloat = 380
-    static let height: CGFloat = 440
+    static let height: CGFloat = 500
     static let rateWidth: CGFloat = 80
     static let columnSpacing: CGFloat = 6
 }
@@ -19,6 +19,7 @@ struct TrafficView: View {
     @ObservedObject var monitor: TrafficMonitor
     @ObservedObject var loginItem: LoginItemController
     @ObservedObject var preferences: PanelPreferences
+    @ObservedObject var networkPanel: NetworkPanelModel
     var openSettings: () -> Void = {}
 
     var body: some View {
@@ -26,6 +27,8 @@ struct TrafficView: View {
             rows: monitor.rows,
             updatedAt: monitor.updatedAt,
             errorMessage: monitor.errorMessage,
+            network: networkPanel.snapshot,
+            refreshAddresses: { networkPanel.refreshAddresses(force: true) },
             sort: $preferences.sort,
             ascending: $preferences.ascending,
             launchAtLogin: Binding(get: { loginItem.isRequested }, set: { loginItem.setEnabled($0) }),
@@ -52,6 +55,8 @@ struct TrafficPanel: View {
     let rows: [ProcessTraffic]
     let updatedAt: Date?
     let errorMessage: String?
+    var network = NetworkPanelSnapshot()
+    var refreshAddresses: () -> Void = {}
     var sort: Binding<TrafficSort> = .constant(.download)
     var ascending: Binding<Bool> = .constant(false)
     var launchAtLogin: Binding<Bool> = .constant(false)
@@ -65,6 +70,8 @@ struct TrafficPanel: View {
 
     var body: some View {
         VStack(spacing: 6) {
+            NetworkAddressesView(snapshot: network, refresh: refreshAddresses)
+                .modifier(PanelGroup())
             header
                 .modifier(PanelGroup())
             VStack(spacing: 0) {
