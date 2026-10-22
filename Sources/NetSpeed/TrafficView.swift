@@ -9,15 +9,24 @@ enum PanelLayout {
     static let columnSpacing: CGFloat = 6
 }
 
+@MainActor
+final class PanelPreferences: ObservableObject {
+    @Published var sort: TrafficSort = .download
+    @Published var ascending = false
+}
+
 struct TrafficView: View {
     @ObservedObject var monitor: TrafficMonitor
     @ObservedObject var loginItem: LoginItemController
+    @ObservedObject var preferences: PanelPreferences
 
     var body: some View {
         TrafficPanel(
             rows: monitor.rows,
             updatedAt: monitor.updatedAt,
             errorMessage: monitor.errorMessage,
+            sort: $preferences.sort,
+            ascending: $preferences.ascending,
             launchAtLogin: Binding(get: { loginItem.isRequested }, set: { loginItem.setEnabled($0) }),
             loginNeedsApproval: loginItem.requiresApproval,
             openLoginSettings: { loginItem.openSettings() },
@@ -41,14 +50,13 @@ struct TrafficPanel: View {
     let rows: [ProcessTraffic]
     let updatedAt: Date?
     let errorMessage: String?
+    var sort: Binding<TrafficSort> = .constant(.download)
+    var ascending: Binding<Bool> = .constant(false)
     var launchAtLogin: Binding<Bool> = .constant(false)
     var loginNeedsApproval = false
     var openLoginSettings: () -> Void = {}
     var retry: () -> Void = {}
     var quit: () -> Void = {}
-
-    @State private var sort: TrafficSort = .download
-    @State private var ascending = false
 
     private var activeCount: Int { rows.filter(\.isActive).count }
 
@@ -142,7 +150,7 @@ struct TrafficPanel: View {
             ScrollView {
                 LazyVStack(spacing: 0, pinnedViews: [.sectionHeaders]) {
                     Section {
-                        ForEach(Array(sort.sorted(rows, ascending: ascending).enumerated()), id: \.element.id) { index, row in
+                        ForEach(Array(sort.wrappedValue.sorted(rows, ascending: ascending.wrappedValue).enumerated()), id: \.element.id) { index, row in
                             TrafficRow(row: row)
                                 .background(index.isMultiple(of: 2)
                                     ? Color.clear
@@ -188,19 +196,19 @@ struct TrafficPanel: View {
 
     private func sortButton(_ title: String, column: TrafficSort) -> some View {
         Button {
-            if sort == column { ascending.toggle() }
-            else { sort = column; ascending = false }
+            if sort.wrappedValue == column { ascending.wrappedValue.toggle() }
+            else { sort.wrappedValue = column; ascending.wrappedValue = false }
         } label: {
             Text(title)
-                .font(.system(size: 12, weight: sort == column ? .medium : .regular))
-                .foregroundStyle(sort == column ? Color(nsColor: .systemBlue) : Color.secondary)
+                .font(.system(size: 12, weight: sort.wrappedValue == column ? .medium : .regular))
+                .foregroundStyle(sort.wrappedValue == column ? Color(nsColor: .systemBlue) : Color.secondary)
                 .frame(width: PanelLayout.rateWidth, height: 26, alignment: .trailing)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .help("按\(title)排序，再次点击切换升降序")
         .accessibilityLabel("按\(title)排序")
-        .accessibilityValue(sort == column ? (ascending ? "升序" : "降序") : "未选中")
+        .accessibilityValue(sort.wrappedValue == column ? (ascending.wrappedValue ? "升序" : "降序") : "未选中")
     }
 
     private func message<Content: View>(symbol: String, title: String, detail: String, @ViewBuilder action: () -> Content) -> some View {
@@ -292,7 +300,33 @@ private struct ProcessIcon: View {
             }
         }
         .frame(width: 16, height: 16)
-        .onAppear { icon = NSRunningApplication(processIdentifier: pid)?.icon }
+        .onAppear {
+            guard icon == nil, pid > 0 else { return }
+            icon = autoreleasepool {
+                guard let source = NSRunningApplication(processIdentifier: pid)?.icon else { return nil }
+                return ProcessIconImage.thumbnail(source)
+            }
+        }
         .accessibilityHidden(true)
+    }
+}
+
+enum ProcessIconImage {
+    /// 列表显示 16 pt，仅保留一张 2× 位图，不持有应用原图的多尺寸表示。
+    static func thumbnail(_ source: NSImage) -> NSImage? {
+        guard let bitmap = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: 32,
+            pixelsHigh: 32, bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true,
+            isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0),
+            let graphics = NSGraphicsContext(bitmapImageRep: bitmap) else { return nil }
+        NSGraphicsContext.saveGraphicsState()
+        NSGraphicsContext.current = graphics
+        defer { NSGraphicsContext.restoreGraphicsState() }
+        graphics.imageInterpolation = .high
+        source.draw(in: NSRect(x: 0, y: 0, width: 32, height: 32),
+                    from: .zero, operation: .copy, fraction: 1)
+        bitmap.size = NSSize(width: 16, height: 16)
+        let image = NSImage(size: bitmap.size)
+        image.addRepresentation(bitmap)
+        return image
     }
 }
