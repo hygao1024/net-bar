@@ -3,10 +3,10 @@ import SwiftUI
 import NetSpeedCore
 
 enum PanelLayout {
-    static let width: CGFloat = 420
-    static let height: CGFloat = 500
-    static let rateWidth: CGFloat = 88
-    static let columnSpacing: CGFloat = 8
+    static let width: CGFloat = 380
+    static let height: CGFloat = 440
+    static let rateWidth: CGFloat = 80
+    static let columnSpacing: CGFloat = 6
 }
 
 struct TrafficView: View {
@@ -35,12 +35,9 @@ struct TrafficPanel: View {
     @State private var ascending = false
 
     private var activeCount: Int { rows.filter(\.isActive).count }
-    private var sortDescription: String {
-        "\(sort == .download ? "下载" : "上传")\(ascending ? "升序" : "降序")"
-    }
 
     var body: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 6) {
             header
                 .modifier(PanelGroup())
             VStack(spacing: 0) {
@@ -53,13 +50,13 @@ struct TrafficPanel: View {
             footer
                 .modifier(PanelGroup())
         }
-        .padding(10)
+        .padding(8)
         .frame(width: PanelLayout.width, height: PanelLayout.height)
         .background(Color(nsColor: .windowBackgroundColor))
     }
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 4) {
             Text("应用网速")
                 .font(.system(size: 13, weight: .medium))
                 .foregroundStyle(Color(nsColor: .systemBlue))
@@ -77,8 +74,8 @@ struct TrafficPanel: View {
             }
             .font(.system(size: 12))
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
     }
 
     private var headerDetail: String {
@@ -101,8 +98,8 @@ struct TrafficPanel: View {
             sortButton("下载", column: .download)
             sortButton("上传", column: .upload)
         }
-        .padding(.horizontal, 12)
-        .frame(height: 32)
+        .padding(.horizontal, 10)
+        .frame(height: 28)
         .background(Color(nsColor: .textBackgroundColor).opacity(0.65))
         .background(Color(nsColor: .windowBackgroundColor))
     }
@@ -150,8 +147,6 @@ struct TrafficPanel: View {
             Text("关闭即暂停")
                 .help("关闭面板后停止采样，重新展开时读取新样本")
             Spacer(minLength: 8)
-            Text(sortDescription)
-                .accessibilityLabel("当前按\(sortDescription)排列")
             Button("退出", action: quit)
                 .buttonStyle(.borderless)
                 .foregroundStyle(Color(nsColor: .systemBlue))
@@ -161,8 +156,8 @@ struct TrafficPanel: View {
         }
         .font(.system(size: 11))
         .foregroundStyle(.secondary)
-        .padding(.horizontal, 12)
-        .frame(height: 32)
+        .padding(.horizontal, 10)
+        .frame(height: 28)
     }
 
     private func sortButton(_ title: String, column: TrafficSort) -> some View {
@@ -173,7 +168,7 @@ struct TrafficPanel: View {
             Text(title)
                 .font(.system(size: 12, weight: sort == column ? .medium : .regular))
                 .foregroundStyle(sort == column ? Color(nsColor: .systemBlue) : Color.secondary)
-                .frame(width: PanelLayout.rateWidth, height: 30, alignment: .trailing)
+                .frame(width: PanelLayout.rateWidth, height: 26, alignment: .trailing)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -207,9 +202,9 @@ private struct PanelGroup: ViewModifier {
     func body(content: Content) -> some View {
         content
             .background(Color(nsColor: .textBackgroundColor).opacity(0.65))
-            .clipShape(RoundedRectangle(cornerRadius: 10))
+            .clipShape(RoundedRectangle(cornerRadius: 8))
             .overlay {
-                RoundedRectangle(cornerRadius: 10)
+                RoundedRectangle(cornerRadius: 8)
                     .strokeBorder(Color(nsColor: .separatorColor).opacity(contrast == .increased ? 1 : 0.7), lineWidth: 1)
             }
     }
@@ -220,7 +215,7 @@ private struct TrafficRow: View {
 
     var body: some View {
         HStack(spacing: PanelLayout.columnSpacing) {
-            HStack(spacing: 7) {
+            HStack(spacing: 6) {
                 ProcessIcon(pid: row.pid)
                 Text(row.name)
                     .font(.system(size: 12))
@@ -230,8 +225,8 @@ private struct TrafficRow: View {
             rate(row.download)
             rate(row.upload)
         }
-        .padding(.horizontal, 12)
-        .frame(height: 30)
+        .padding(.horizontal, 10)
+        .frame(height: 26)
         .help("\(row.name)\n进程编号：\(row.pid)")
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(row.name)，进程编号 \(row.pid)")
@@ -270,7 +265,7 @@ private struct ProcessIcon: View {
                     .padding(3)
             }
         }
-        .frame(width: 18, height: 18)
+        .frame(width: 16, height: 16)
         .onAppear { icon = NSRunningApplication(processIdentifier: pid)?.icon }
         .accessibilityHidden(true)
     }

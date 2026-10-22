@@ -18,7 +18,7 @@
 │             可滚动列表               │
 ╰──────────────────────────────────────╯
 ╭──────────────────────────────────────╮
-│ 关闭即暂停            下载降序  退出 │
+│ 关闭即暂停                      退出 │
 ╰──────────────────────────────────────╯
 ```
 
@@ -41,11 +41,11 @@
 
 使用系统字体 SF（San Francisco）及中文回退字体。标题 13 pt 中等字重，名称与数值 12 pt 常规字重，单位 10 pt，底部说明 11 pt。数值采用等宽数字，避免刷新时横向跳动。
 
-面板 420 × 500 pt，外边距 10 pt，分组间距 8 pt，组内横向边距 12 pt，圆角 10 pt，描边 1 pt。列表行高 30 pt，图标 18 pt。外层圆角、箭头和阴影由 NSPopover 提供。
+面板 380 × 440 pt，外边距 8 pt，分组间距 6 pt，组内横向边距 10 pt，圆角 8 pt，描边 1 pt。列表行高 26 pt，图标 16 pt。相较上一版缩小约 20% 的面积，保留原字号以保证可读性。外层圆角、箭头和阴影由 NSPopover 提供。
 
 ## 可访问性与验证
 
-当前排序列采用蓝色和中等字重，底部明确显示排序方向，读屏提供选中状态；表头不添加箭头。状态圆点同时配文字，不只依赖颜色。退出支持 ⌘Q，错误提供重新采样按钮。保留浅色和深色适配，不添加装饰动画。
+当前排序列采用蓝色和中等字重，读屏提供选中状态及升降序；表头不添加箭头，底部仅保留“关闭即暂停”和“退出”。状态圆点同时配文字，不只依赖颜色。退出支持 ⌘Q，错误提供重新采样按钮。保留浅色和深色适配，不添加装饰动画。
 
 界面参考 Apple [Dark Mode](https://developer.apple.com/design/human-interface-guidelines/dark-mode)、[Accessibility](https://developer.apple.com/design/human-interface-guidelines/accessibility) 和 [Popovers](https://developer.apple.com/design/human-interface-guidelines/popovers)；不代表 App Store 审核结论。
 
