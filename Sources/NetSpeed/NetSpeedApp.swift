@@ -23,8 +23,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         statusItem = item
         if let button = item.button {
-            button.image = NSImage(systemSymbolName: "network", accessibilityDescription: "应用网速")
-            button.image?.isTemplate = true
+            button.image = BrandIcon.statusBarImage()
             button.toolTip = "应用网速 · 点击查看"
             button.target = self
             button.action = #selector(togglePopover)

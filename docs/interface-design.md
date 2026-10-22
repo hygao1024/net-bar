@@ -45,6 +45,10 @@
 
 ## 可访问性与验证
 
+应用图标采用蓝色渐变圆角底板与两条错位的白色流线，沿用已确认的简洁方案。`Sources/NetSpeed/BrandIcon.swift` 保存共享矢量路径；状态栏使用 18 × 18 pt 的 `NSImage` 模板图像，透明背景，由系统根据菜单栏外观和选中状态着色，小尺寸下略加宽笔画以保持清晰。图标不随网速刷新。
+
+`scripts/build-app.sh` 自动生成标准 16–512 pt（包含 2× 分辨率）的应用图标，转换为 `AppIcon.icns` 并打包进应用；`CFBundleIconFile` 指向该资源。构建同时在 `.build/status-icon-preview.png` 输出黑白轮廓的放大及 18 pt 实际尺寸预览。
+
 当前排序列采用蓝色和中等字重，读屏提供选中状态及升降序；表头不添加箭头，底部左侧放置原生迷你“开机启动”开关，右侧保留“退出”按钮；需要系统批准时才在开关旁显示“待批准”入口。状态圆点同时配文字，不只依赖颜色。退出支持 ⌘Q，错误提供重新采样按钮。保留浅色和深色适配，不添加装饰动画。
 
 界面参考 Apple [Dark Mode](https://developer.apple.com/design/human-interface-guidelines/dark-mode)、[Accessibility](https://developer.apple.com/design/human-interface-guidelines/accessibility) 和 [Popovers](https://developer.apple.com/design/human-interface-guidelines/popovers)；不代表 App Store 审核结论。
