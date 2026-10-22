@@ -4,6 +4,28 @@ import Testing
 
 @Suite("流量解析与显示")
 struct TrafficTests {
+    @Test("内核 PID 0 不应导致整帧采样失败", arguments: [0.0, 128.0])
+    func kernelProcess(download: Double) throws {
+        // 来自故障机器的最小样本，保留内核、普通进程和第二帧新增进程。
+        let rows = try NetTopParser.parse("""
+        ,bytes_in,bytes_out,
+        kernel_task.0,2904,2356,
+        launchd.1,0,0,
+        ClashX Pro.717,283688469,282509991,
+        ,bytes_in,bytes_out,
+        kernel_task.0,\(download),0,
+        launchd.1,0,0,
+        EasyMonitor.242,1395,986,
+        ClashX Pro.717,406723,402913,
+        """)
+        #expect(rows == [
+            ProcessTraffic(pid: 0, name: "kernel_task", download: download, upload: 0),
+            ProcessTraffic(pid: 1, name: "launchd", download: 0, upload: 0),
+            ProcessTraffic(pid: 242, name: "EasyMonitor", download: 1395, upload: 986),
+            ProcessTraffic(pid: 717, name: "ClashX Pro", download: 406723, upload: 402913)
+        ])
+    }
+
     @Test("nettop 缺少名称时仍按 PID 展示该进程")
     func unnamedProcess() throws {
         let rows = try NetTopParser.parse("""
@@ -46,6 +68,8 @@ struct TrafficTests {
         ",bytes_in,bytes_out,\n,bytes_in,bytes_out,\nApp.1,broken,20,",
         ",bytes_in,bytes_out,\n,bytes_in,bytes_out,\nApp.1,nan,20,",
         ",bytes_in,bytes_out,\n,bytes_in,bytes_out,\nApp.1,-1,20,",
+        ",bytes_in,bytes_out,\n,bytes_in,bytes_out,\nApp.-1,1,2,",
+        ",bytes_in,bytes_out,\n,bytes_in,bytes_out,\nkernel_task.0,1,2,\nkernel_task.0,3,4,",
         ",bytes_in,bytes_out,\n,bytes_in,bytes_out,\nApp.1,1,2,\nApp.1,3,4,"
     ])
     func invalidSamples(output: String) {

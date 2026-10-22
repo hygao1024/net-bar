@@ -138,6 +138,6 @@ struct LifecycleTests {
     func liveNetTop() async throws {
         let sampler = NetTopSampler()
         let rows = try await sampler.sample()
-        #expect(rows.allSatisfy { $0.pid > 0 && $0.download >= 0 && $0.upload >= 0 })
+        #expect(rows.allSatisfy { $0.pid >= 0 && $0.download >= 0 && $0.upload >= 0 })
     }
 }

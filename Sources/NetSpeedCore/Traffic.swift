@@ -72,11 +72,12 @@ public enum NetTopParser {
                 continue
             }
             guard frame == 2 else { continue }
+            // nettop 可能包含 kernel_task.0；PID 0 是合法内核记录。
             guard let inputIndex, let outputIndex,
                   fields.count > max(inputIndex, outputIndex),
                   let identity = fields.first,
                   let dot = identity.lastIndex(of: "."),
-                  let pid = Int32(identity[identity.index(after: dot)...]), pid > 0,
+                  let pid = Int32(identity[identity.index(after: dot)...]), pid >= 0,
                   let download = Double(fields[inputIndex]), download.isFinite, download >= 0,
                   let upload = Double(fields[outputIndex]), upload.isFinite, upload >= 0,
                   pids.insert(pid).inserted else { throw SamplingError.invalidOutput }

@@ -19,7 +19,7 @@ open dist/NetSpeed.app
 bash scripts/build-dmg.sh
 ```
 
-脚本读取 `Resources/Info.plist` 中的版本号，重新构建并生成 `dist/NetSpeed-v1.0.0-<架构>.dmg`。映像内包含应用和“应用程序”文件夹快捷方式，可拖入安装；使用当前 Mac 的架构构建，不是通用二进制。当前发布版本为 `1.0.0`，构建号为 `1`。
+脚本读取 `Resources/Info.plist` 中的版本号，重新构建并生成 `dist/NetSpeed-v1.0.0-<架构>.dmg`。映像内包含应用和“应用程序”文件夹快捷方式，可拖入安装；使用当前 Mac 的架构构建，不是通用二进制。当前发布版本为 `1.0.0`，构建号为 `2`（修复包含 `kernel_task.0` 时整帧采样失败的问题）。
 
 ## 使用
 
