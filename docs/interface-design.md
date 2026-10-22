@@ -18,7 +18,7 @@
 │             可滚动列表               │
 ╰──────────────────────────────────────╯
 ╭──────────────────────────────────────╮
-│ 关闭即暂停                      退出 │
+│ 开机启动 ○                      退出 │
 ╰──────────────────────────────────────╯
 ```
 
@@ -45,8 +45,8 @@
 
 ## 可访问性与验证
 
-当前排序列采用蓝色和中等字重，读屏提供选中状态及升降序；表头不添加箭头，底部仅保留“关闭即暂停”和“退出”。状态圆点同时配文字，不只依赖颜色。退出支持 ⌘Q，错误提供重新采样按钮。保留浅色和深色适配，不添加装饰动画。
+当前排序列采用蓝色和中等字重，读屏提供选中状态及升降序；表头不添加箭头，底部左侧放置原生迷你“开机启动”开关，右侧保留“退出”按钮；需要系统批准时才在开关旁显示“待批准”入口。状态圆点同时配文字，不只依赖颜色。退出支持 ⌘Q，错误提供重新采样按钮。保留浅色和深色适配，不添加装饰动画。
 
 界面参考 Apple [Dark Mode](https://developer.apple.com/design/human-interface-guidelines/dark-mode)、[Accessibility](https://developer.apple.com/design/human-interface-guidelines/accessibility) 和 [Popovers](https://developer.apple.com/design/human-interface-guidelines/popovers)；不代表 App Store 审核结论。
 
-执行 `bash scripts/render-previews.sh` 可在 `.build/ui-previews/` 生成真实 SwiftUI 视图的离屏预览，包括浅色、深色、短列表、滚动列表、加载、空列表和错误状态。预览使用示例速率，不采样网络，也不修改系统外观。
+执行 `bash scripts/render-previews.sh` 可在 `.build/ui-previews/` 生成真实 SwiftUI 视图的离屏预览，包括浅色、深色、短列表、滚动列表、加载、空列表、错误状态及开机启动开启／待批准状态。预览使用示例速率，不采样网络，也不修改系统外观。

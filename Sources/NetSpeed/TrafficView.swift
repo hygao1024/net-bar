@@ -11,15 +11,28 @@ enum PanelLayout {
 
 struct TrafficView: View {
     @ObservedObject var monitor: TrafficMonitor
+    @ObservedObject var loginItem: LoginItemController
 
     var body: some View {
         TrafficPanel(
             rows: monitor.rows,
             updatedAt: monitor.updatedAt,
             errorMessage: monitor.errorMessage,
+            launchAtLogin: Binding(get: { loginItem.isRequested }, set: { loginItem.setEnabled($0) }),
+            loginNeedsApproval: loginItem.requiresApproval,
+            openLoginSettings: { loginItem.openSettings() },
             retry: { monitor.start() },
             quit: { NSApp.terminate(nil) }
         )
+        .alert("开机启动设置失败", isPresented: Binding(
+            get: { loginItem.errorMessage != nil },
+            set: { if !$0 { loginItem.errorMessage = nil } }
+        )) {
+            Button("打开系统设置") { loginItem.openSettings() }
+            Button("好", role: .cancel) { loginItem.errorMessage = nil }
+        } message: {
+            Text(loginItem.errorMessage ?? "")
+        }
     }
 }
 
@@ -28,6 +41,9 @@ struct TrafficPanel: View {
     let rows: [ProcessTraffic]
     let updatedAt: Date?
     let errorMessage: String?
+    var launchAtLogin: Binding<Bool> = .constant(false)
+    var loginNeedsApproval = false
+    var openLoginSettings: () -> Void = {}
     var retry: () -> Void = {}
     var quit: () -> Void = {}
 
@@ -144,8 +160,18 @@ struct TrafficPanel: View {
 
     private var footer: some View {
         HStack(spacing: 10) {
-            Text("关闭即暂停")
-                .help("关闭面板后停止采样，重新展开时读取新样本")
+            Toggle("开机启动", isOn: launchAtLogin)
+                .toggleStyle(.switch)
+                .controlSize(.mini)
+                .fixedSize()
+                .help("登录 Mac 后自动启动应用网速")
+                .accessibilityValue(loginNeedsApproval ? "等待系统批准，尚未生效" : launchAtLogin.wrappedValue ? "已开启" : "已关闭")
+            if loginNeedsApproval {
+                Button("待批准", action: openLoginSettings)
+                    .buttonStyle(.borderless)
+                    .foregroundStyle(Color(nsColor: .systemBlue))
+                    .help("在系统设置的登录项中允许应用网速启动")
+            }
             Spacer(minLength: 8)
             Button("退出", action: quit)
                 .buttonStyle(.borderless)

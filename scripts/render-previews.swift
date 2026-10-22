@@ -26,6 +26,8 @@ struct RenderPreviews {
         for dark in [false, true] {
             let mode = dark ? "dark" : "light"
             try render(TrafficPanel(rows: rows, updatedAt: date, errorMessage: nil), name: "\(mode)-traffic", dark: dark, output: output)
+            try render(TrafficPanel(rows: rows, updatedAt: date, errorMessage: nil, launchAtLogin: .constant(true)), name: "\(mode)-login-enabled", dark: dark, output: output)
+            try render(TrafficPanel(rows: rows, updatedAt: date, errorMessage: nil, launchAtLogin: .constant(true), loginNeedsApproval: true), name: "\(mode)-login-approval", dark: dark, output: output)
             let overflow = rows + (1...15).map {
                 ProcessTraffic(pid: Int32(2000 + $0), name: "后台进程 \($0)", download: 0, upload: 0)
             }

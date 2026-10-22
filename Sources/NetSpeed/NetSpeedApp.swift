@@ -14,6 +14,7 @@ struct NetSpeedApp: App {
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     private let monitor = TrafficMonitor()
+    private let loginItem = LoginItemController()
     private var statusItem: NSStatusItem?
     private let popover = NSPopover()
 
@@ -32,7 +33,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         popover.animates = false
         popover.delegate = self
         popover.contentSize = NSSize(width: PanelLayout.width, height: PanelLayout.height)
-        popover.contentViewController = NSHostingController(rootView: TrafficView(monitor: monitor))
+        popover.contentViewController = NSHostingController(rootView: TrafficView(monitor: monitor, loginItem: loginItem))
         NSWorkspace.shared.notificationCenter.addObserver(
             self, selector: #selector(suspendMonitoring), name: NSWorkspace.willSleepNotification, object: nil
         )
@@ -51,7 +52,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         }
     }
 
-    func popoverDidShow(_ notification: Notification) { monitor.start() }
+    func popoverDidShow(_ notification: Notification) {
+        loginItem.refresh()
+        monitor.start()
+    }
+    func applicationDidBecomeActive(_ notification: Notification) { loginItem.refresh() }
     func popoverWillClose(_ notification: Notification) { monitor.stop() }
 
     @objc private func suspendMonitoring() {
