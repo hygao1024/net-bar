@@ -23,8 +23,30 @@ struct RenderPreviews {
             ProcessTraffic(pid: 360, name: "apsd", download: 0, upload: 0),
             ProcessTraffic(pid: 700, name: "sharingd", download: 0, upload: 0)
         ]
+        let suite = "NetSpeed.previews.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let preferences = MenuBarPreferences(defaults: defaults)
         for dark in [false, true] {
             let mode = dark ? "dark" : "light"
+            preferences.appearance = MenuBarAppearance()
+            for display in MenuBarDisplayMode.allCases {
+                preferences.appearance.mode = display
+                try render(MenuBarSettingsView(preferences: preferences), name: "\(mode)-settings-\(display.rawValue)",
+                           dark: dark, output: output, width: MenuBarSettingsView.width, height: MenuBarSettingsView.height)
+            }
+            preferences.appearance.fontSize = 12
+            preferences.appearance.mode = .iconAndSpeed
+            try render(MenuBarSettingsView(preferences: preferences), name: "\(mode)-settings-large-font",
+                       dark: dark, output: output, width: MenuBarSettingsView.width, height: MenuBarSettingsView.height)
+            preferences.appearance.fontSize = 9
+            preferences.appearance.mode = .speedOnly
+            preferences.appearance.compactUnits = true
+            preferences.appearance.showsArrows = false
+            preferences.appearance.decimalPlaces = 2
+            preferences.appearance.fontName = "Menlo-Regular"
+            try render(MenuBarSettingsView(preferences: preferences), name: "\(mode)-settings-compact",
+                       dark: dark, output: output, width: MenuBarSettingsView.width, height: MenuBarSettingsView.height)
             try render(TrafficPanel(rows: rows, updatedAt: date, errorMessage: nil), name: "\(mode)-traffic", dark: dark, output: output)
             try render(TrafficPanel(rows: rows, updatedAt: date, errorMessage: nil, launchAtLogin: .constant(true)), name: "\(mode)-login-enabled", dark: dark, output: output)
             try render(TrafficPanel(rows: rows, updatedAt: date, errorMessage: nil, launchAtLogin: .constant(true), loginNeedsApproval: true), name: "\(mode)-login-approval", dark: dark, output: output)
@@ -45,7 +67,7 @@ struct RenderPreviews {
         return ProcessTraffic(pid: pid, name: name, download: down, upload: up)
     }
 
-    @MainActor private static func render(_ panel: TrafficPanel, name: String, dark: Bool, increasedContrast: Bool = false, output: URL) throws {
+    @MainActor private static func render<Content: View>(_ panel: Content, name: String, dark: Bool, increasedContrast: Bool = false, output: URL, width: CGFloat = PanelLayout.width, height: CGFloat = PanelLayout.height) throws {
         let appearance: NSAppearance.Name = increasedContrast
             ? (dark ? .accessibilityHighContrastDarkAqua : .accessibilityHighContrastAqua)
             : (dark ? .darkAqua : .aqua)
@@ -53,7 +75,7 @@ struct RenderPreviews {
         let content = panel
             .environment(\.colorScheme, dark ? .dark : .light)
         let view = NSHostingView(rootView: content)
-        let bounds = NSRect(x: 0, y: 0, width: PanelLayout.width, height: PanelLayout.height)
+        let bounds = NSRect(x: 0, y: 0, width: width, height: height)
         let window = NSWindow(contentRect: bounds, styleMask: .borderless, backing: .buffered, defer: false)
         window.appearance = NSApp.appearance
         window.contentView = view

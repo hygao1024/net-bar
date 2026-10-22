@@ -19,6 +19,7 @@ struct TrafficView: View {
     @ObservedObject var monitor: TrafficMonitor
     @ObservedObject var loginItem: LoginItemController
     @ObservedObject var preferences: PanelPreferences
+    var openSettings: () -> Void = {}
 
     var body: some View {
         TrafficPanel(
@@ -30,6 +31,7 @@ struct TrafficView: View {
             launchAtLogin: Binding(get: { loginItem.isRequested }, set: { loginItem.setEnabled($0) }),
             loginNeedsApproval: loginItem.requiresApproval,
             openLoginSettings: { loginItem.openSettings() },
+            openSettings: openSettings,
             retry: { monitor.start() },
             quit: { NSApp.terminate(nil) }
         )
@@ -55,6 +57,7 @@ struct TrafficPanel: View {
     var launchAtLogin: Binding<Bool> = .constant(false)
     var loginNeedsApproval = false
     var openLoginSettings: () -> Void = {}
+    var openSettings: () -> Void = {}
     var retry: () -> Void = {}
     var quit: () -> Void = {}
 
@@ -181,6 +184,13 @@ struct TrafficPanel: View {
                     .help("在系统设置的登录项中允许应用网速启动")
             }
             Spacer(minLength: 8)
+            Button(action: openSettings) {
+                Image(systemName: "gearshape")
+            }
+            .buttonStyle(.borderless)
+            .help("菜单栏设置（⌘,）")
+            .accessibilityLabel("菜单栏设置")
+            .keyboardShortcut(",", modifiers: .command)
             Button("退出", action: quit)
                 .buttonStyle(.borderless)
                 .foregroundStyle(Color(nsColor: .systemBlue))

@@ -3,48 +3,60 @@ import SwiftUI
 import NetSpeedCore
 
 @MainActor
-final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSWindowDelegate {
     private let monitor: TrafficMonitor
     private let loginItem = LoginItemController()
     private let preferences = PanelPreferences()
-    private var statusItem: NSStatusItem?
+    let menuBarPreferences: MenuBarPreferences
+    private(set) var settingsWindow: NSWindow?
+    private let menuBarMonitor = MenuBarSpeedMonitor()
+    private var isAwake = true
+    private var isSessionActive = true
+    private(set) var statusItem: NSStatusItem?
     let popover = NSPopover()
 
     override convenience init() {
         self.init(monitor: TrafficMonitor())
     }
 
-    init(monitor: TrafficMonitor) {
+    init(monitor: TrafficMonitor, menuBarPreferences: MenuBarPreferences = MenuBarPreferences()) {
         self.monitor = monitor
+        self.menuBarPreferences = menuBarPreferences
         super.init()
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
-        let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
+        let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         statusItem = item
         if let button = item.button {
-            button.image = BrandIcon.statusBarImage()
-            button.toolTip = "应用网速 · 点击查看"
+            MenuBarPresentation.configure(button)
             button.target = self
             button.action = #selector(togglePopover)
         }
+        menuBarMonitor.onChange = { [weak self] _ in self?.updateMenuBar() }
+        menuBarPreferences.onChange = { [weak self] in
+            self?.synchronizeMenuBarMonitoring()
+            self?.updateMenuBar()
+        }
+        synchronizeMenuBarMonitoring()
+        updateMenuBar()
         popover.behavior = .transient
         popover.animates = false
         popover.delegate = self
         popover.contentSize = NSSize(width: PanelLayout.width, height: PanelLayout.height)
-        NSWorkspace.shared.notificationCenter.addObserver(
-            self, selector: #selector(suspendMonitoring), name: NSWorkspace.willSleepNotification, object: nil
-        )
-        NSWorkspace.shared.notificationCenter.addObserver(
-            self, selector: #selector(suspendMonitoring), name: NSWorkspace.sessionDidResignActiveNotification, object: nil
-        )
+        for name in [NSWorkspace.willSleepNotification, NSWorkspace.didWakeNotification,
+                     NSWorkspace.sessionDidResignActiveNotification, NSWorkspace.sessionDidBecomeActiveNotification] {
+            NSWorkspace.shared.notificationCenter.addObserver(
+                self, selector: #selector(workspaceStateChanged), name: name, object: nil)
+        }
     }
 
     func preparePanel() {
         guard popover.contentViewController == nil else { return }
         popover.contentViewController = NSHostingController(rootView:
-            TrafficView(monitor: monitor, loginItem: loginItem, preferences: preferences))
+            TrafficView(monitor: monitor, loginItem: loginItem, preferences: preferences,
+                        openSettings: { [weak self] in self?.showSettings() }))
     }
 
     @objc private func togglePopover() {
@@ -71,12 +83,66 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         popover.contentViewController = nil
     }
 
-    @objc private func suspendMonitoring() {
+    @objc private func workspaceStateChanged(_ notification: Notification) {
+        switch notification.name {
+        case NSWorkspace.willSleepNotification: isAwake = false
+        case NSWorkspace.didWakeNotification: isAwake = true
+        case NSWorkspace.sessionDidResignActiveNotification: isSessionActive = false
+        case NSWorkspace.sessionDidBecomeActiveNotification: isSessionActive = true
+        default: return
+        }
+        synchronizeMenuBarMonitoring()
+        if !isAwake || !isSessionActive {
+            popover.performClose(nil)
+            monitor.stop()
+        }
+    }
+
+    private func synchronizeMenuBarMonitoring() {
+        if isAwake && isSessionActive && menuBarPreferences.appearance.mode.showsSpeed {
+            menuBarMonitor.start()
+        } else {
+            menuBarMonitor.stop()
+        }
+    }
+
+    private func updateMenuBar() {
+        guard let item = statusItem, let button = item.button else { return }
+        MenuBarPresentation.update(button, state: menuBarMonitor.state,
+                                   appearance: menuBarPreferences.appearance)
+    }
+
+    func showSettings() {
         popover.performClose(nil)
-        monitor.stop()
+        prepareSettings()
+        NSApp.activate(ignoringOtherApps: true)
+        settingsWindow?.makeKeyAndOrderFront(nil)
+    }
+
+    func prepareSettings() {
+        if settingsWindow == nil {
+            let controller = NSHostingController(rootView: MenuBarSettingsView(preferences: menuBarPreferences))
+            let window = NSWindow(contentViewController: controller)
+            window.title = "菜单栏设置"
+            window.styleMask = [.titled, .closable, .miniaturizable]
+            window.isReleasedWhenClosed = false
+            window.delegate = self
+            window.center()
+            settingsWindow = window
+        }
+    }
+
+    func windowWillClose(_ notification: Notification) {
+        guard let window = notification.object as? NSWindow, window === settingsWindow else { return }
+        window.contentViewController = nil
+        settingsWindow = nil
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        menuBarPreferences.onChange = nil
+        menuBarMonitor.onChange = nil
+        settingsWindow?.close()
+        menuBarMonitor.stop()
         monitor.stop()
         NSWorkspace.shared.notificationCenter.removeObserver(self)
     }
