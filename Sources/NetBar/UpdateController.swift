@@ -11,7 +11,7 @@ final class UpdateController: NSObject, ObservableObject, SPUUpdaterDelegate {
 
         var title: String {
             switch self {
-            case .idle: return "随时保持最新"
+            case .idle: return "尚未检查更新"
             case .checking: return "正在检查更新…"
             case .current: return "暂无可用更新"
             case .available(let version): return "发现新版本 \(version)"
@@ -25,7 +25,7 @@ final class UpdateController: NSObject, ObservableObject, SPUUpdaterDelegate {
 
         var detail: String {
             switch self {
-            case .idle: return "获取 NetBar 的最新改进。"
+            case .idle: return "检查是否有可用的新版本。"
             case .checking: return "正在连接更新服务。"
             case .current: return "当前没有适用于这台 Mac 的新版本。"
             case .available: return "查看版本说明，选择何时安装。"

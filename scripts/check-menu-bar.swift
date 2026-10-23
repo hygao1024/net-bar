@@ -230,9 +230,41 @@ struct CheckMenuBar {
             delegate.prepareSettings()
             let window = delegate.settingsWindow!
             releasedSettings = window.contentViewController
+            let controller = window.contentViewController as! SettingsController
+            precondition(window.toolbar?.items.filter { $0.label == "菜单栏" || $0.label == "软件更新" }.count == 2,
+                         "设置应使用包含两个页面的真实工具栏")
+            let originalSize = window.frame.size
+            controller.selectedTabViewItemIndex = 1
+            precondition(window.frame.size == originalSize, "切换页面不应改变窗口尺寸")
+            controller.selectedTabViewItemIndex = 0
+            controller.showFontPicker()
+            let manager = NSFontManager.shared
+            let panel = manager.fontPanel(false)!
+            precondition(manager.target === controller && panel.isVisible, "字体面板应属于当前设置窗口")
+            precondition(controller.validModesForFontPanel(panel) == [.face, .collection], "字体面板只负责字族与字形")
+            let originalFontSize = preferences.appearance.fontSize
+            panel.setPanelFont(NSFont(name: "Menlo-Bold", size: 24)!, isMultiple: false)
+            manager.modifyFontViaPanel(nil)
+            precondition(preferences.appearance.fontName == "Menlo-Bold", "原生字体面板选择应即时生效")
+            precondition(preferences.appearance.fontSize == originalFontSize, "字体面板不应绕过字号约束")
+            precondition(MenuBarPreferences(defaults: defaults).appearance == preferences.appearance)
+            controller.selectedTabViewItemIndex = 1
+            precondition(!panel.isVisible && manager.target == nil, "切页应关闭字体面板并清除目标")
+            let savedFont = preferences.appearance.fontName
+            controller.changeFont(manager)
+            precondition(preferences.appearance.fontName == savedFont, "切页后的字体回调不能继续修改设置")
+            controller.showFontPicker()
+            precondition(!panel.isVisible, "软件更新页不能打开菜单栏字体面板")
+            controller.selectedTabViewItemIndex = 0
+            preferences.appearance.mode = .iconOnly
+            controller.showFontPicker()
+            precondition(!panel.isVisible, "仅图标模式不能打开字体面板")
+            preferences.appearance.mode = .speedOnly
+            controller.showFontPicker()
             delegate.prepareSettings()
             precondition(window === delegate.settingsWindow, "设置窗口应复用")
             window.close()
+            precondition(!panel.isVisible && manager.target == nil, "关闭设置应关闭字体面板并清除目标")
         }
         precondition(delegate.settingsWindow == nil && releasedSettings == nil, "关闭设置应释放视图")
         precondition(delegate.popover.contentViewController == nil)

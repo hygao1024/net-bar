@@ -36,32 +36,37 @@ struct RenderPreviews {
             preferences.appearance = MenuBarAppearance()
             for display in MenuBarDisplayMode.allCases {
                 preferences.appearance.mode = display
-                try render(SettingsView(preferences: preferences, updates: UpdateController(preview: .idle)), name: "\(mode)-settings-\(display.rawValue)",
-                           dark: dark, output: output, width: SettingsView.width, height: SettingsView.height)
+                try renderSettings(preferences: preferences, name: "\(mode)-settings-\(display.rawValue)",
+                           dark: dark, output: output)
             }
             let updateStates: [(String, UpdateController.Status)] = [
                 ("idle", .idle), ("checking", .checking), ("current", .current),
                 ("available", .available("1.3.0")), ("downloading", .downloading("1.3.0")),
-                ("ready", .ready("1.3.0")), ("error", .failed),
-                ("unavailable", .unavailable("此构建尚未配置更新验证，请从发布页获取正式版本。"))
+                ("ready", .ready("1.3.0")), ("error", .failed), ("installing", .installing),
+                ("unavailable", .unavailable("此构建尚未配置更新验证，请从发布页获取正式版本。")),
+                ("long-message", .unavailable(String(repeating: "更新服务暂不可用，请稍后重试或前往发布页下载安装。", count: 6)))
             ]
             for (name, status) in updateStates {
-                try render(SettingsView(preferences: preferences, updates: UpdateController(preview: status), page: .updates),
-                           name: "\(mode)-updates-\(name)", dark: dark, output: output,
-                           width: SettingsView.width, height: SettingsView.height)
+                try renderSettings(preferences: preferences, status: status, page: 1,
+                           name: "\(mode)-updates-\(name)", dark: dark, output: output)
             }
+            preferences.appearance.mode = .iconAndSpeed
+            preferences.appearance.fontName = "NetBar-Missing-Preview-Font"
+            try renderSettings(preferences: preferences, name: "\(mode)-settings-missing-font",
+                               dark: dark, output: output)
+            preferences.appearance.fontName = ""
             preferences.appearance.fontSize = 12
             preferences.appearance.mode = .iconAndSpeed
-            try render(SettingsView(preferences: preferences, updates: UpdateController(preview: .idle)), name: "\(mode)-settings-large-font",
-                       dark: dark, output: output, width: SettingsView.width, height: SettingsView.height)
+            try renderSettings(preferences: preferences, name: "\(mode)-settings-large-font",
+                       dark: dark, output: output)
             preferences.appearance.fontSize = 9
             preferences.appearance.mode = .speedOnly
             preferences.appearance.compactUnits = true
             preferences.appearance.showsArrows = false
             preferences.appearance.decimalPlaces = 2
             preferences.appearance.fontName = "Menlo-Regular"
-            try render(SettingsView(preferences: preferences, updates: UpdateController(preview: .idle)), name: "\(mode)-settings-compact",
-                       dark: dark, output: output, width: SettingsView.width, height: SettingsView.height)
+            try renderSettings(preferences: preferences, name: "\(mode)-settings-compact",
+                       dark: dark, output: output)
             try render(TrafficPanel(rows: rows, updatedAt: date, errorMessage: nil, network: network), name: "\(mode)-traffic", dark: dark, output: output)
             try render(TrafficPanel(rows: rows, updatedAt: date, errorMessage: nil, network: network, launchAtLogin: .constant(true)), name: "\(mode)-login-enabled", dark: dark, output: output)
             try render(TrafficPanel(rows: rows, updatedAt: date, errorMessage: nil, network: network, launchAtLogin: .constant(true), loginNeedsApproval: true), name: "\(mode)-login-approval", dark: dark, output: output)
@@ -87,6 +92,27 @@ struct RenderPreviews {
             try render(TrafficPanel(rows: rows, updatedAt: date, errorMessage: nil, network: network), name: "\(mode)-contrast", dark: dark, increasedContrast: true, output: output)
         }
         print("已生成界面预览：\(output.path)")
+    }
+
+    @MainActor private static func renderSettings(preferences: MenuBarPreferences,
+                                                  status: UpdateController.Status = .idle, page: Int = 0,
+                                                  name: String, dark: Bool, output: URL) throws {
+        NSApp.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
+        let window = SettingsController.makeWindow(preferences: preferences, updates: UpdateController(preview: status))
+        window.appearance = NSApp.appearance
+        let controller = window.contentViewController as! SettingsController
+        controller.selectedTabViewItemIndex = page
+        // 同时渲染真实标题栏与工具栏，避免预览与实际导航各维护一套实现。
+        let view = window.contentView!.superview!
+        view.layoutSubtreeIfNeeded()
+        RunLoop.main.run(until: Date().addingTimeInterval(0.1))
+        view.layoutSubtreeIfNeeded()
+        guard let bitmap = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { fatalError("无法创建设置位图") }
+        view.cacheDisplay(in: view.bounds, to: bitmap)
+        guard let data = bitmap.representation(using: .png, properties: [:]) else { fatalError("无法编码设置 PNG") }
+        try data.write(to: output.appendingPathComponent("\(name).png"))
+        window.contentViewController = nil
+        window.close()
     }
 
     @MainActor private static func sample(_ name: String, bundle: String, fallback: Int32, down: Double, up: Double) -> ProcessTraffic {

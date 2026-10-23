@@ -128,11 +128,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
 
     func prepareSettings() {
         if settingsWindow == nil {
-            let controller = NSHostingController(rootView: SettingsView(preferences: menuBarPreferences, updates: updates))
-            let window = NSWindow(contentViewController: controller)
-            window.title = "NetBar 设置"
-            window.styleMask = [.titled, .closable, .miniaturizable]
-            window.isReleasedWhenClosed = false
+            let window = SettingsController.makeWindow(preferences: menuBarPreferences, updates: updates)
             window.delegate = self
             window.center()
             settingsWindow = window
@@ -141,6 +137,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
 
     func windowWillClose(_ notification: Notification) {
         guard let window = notification.object as? NSWindow, window === settingsWindow else { return }
+        (window.contentViewController as? SettingsController)?.closeFontPicker()
         window.contentViewController = nil
         settingsWindow = nil
     }
