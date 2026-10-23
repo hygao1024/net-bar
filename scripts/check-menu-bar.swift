@@ -234,9 +234,19 @@ struct CheckMenuBar {
             precondition(window.toolbar?.items.filter { $0.label == "菜单栏" || $0.label == "软件更新" }.count == 2,
                          "设置应使用包含两个页面的真实工具栏")
             let originalSize = window.frame.size
-            controller.selectedTabViewItemIndex = 1
+            let navigation = window.toolbar!.items.compactMap { $0.view as? NSButton }
+            precondition(navigation.count == 2 && navigation.allSatisfy { !$0.title.isEmpty && $0.image != nil },
+                         "紧凑导航应同时保留文字与图标")
+            let menuButton = navigation.first { $0.tag == 0 }!
+            let updateButton = navigation.first { $0.tag == 1 }!
+            updateButton.performClick(nil)
+            precondition(controller.selectedTabViewItemIndex == 1 && updateButton.state == .on && menuButton.state == .off,
+                         "点击更新导航应切页并同步选中状态")
+            updateButton.performClick(nil)
+            precondition(updateButton.state == .on, "重复点击当前页不能取消选中")
             precondition(window.frame.size == originalSize, "切换页面不应改变窗口尺寸")
-            controller.selectedTabViewItemIndex = 0
+            menuButton.performClick(nil)
+            precondition(controller.selectedTabViewItemIndex == 0 && menuButton.state == .on && updateButton.state == .off)
             controller.showFontPicker()
             let manager = NSFontManager.shared
             let panel = manager.fontPanel(false)!

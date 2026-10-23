@@ -41,8 +41,8 @@ final class SettingsController: NSTabViewController, NSFontChanging {
         window.title = "NetBar 设置"
         window.titleVisibility = .hidden
         window.styleMask = [.titled, .closable, .miniaturizable]
-        window.toolbarStyle = .preference
-        window.toolbar?.displayMode = .iconAndLabel
+        window.toolbarStyle = .unifiedCompact
+        window.toolbar?.displayMode = .iconOnly
         window.toolbar?.allowsUserCustomization = false
         window.setContentSize(contentSize)
         window.isReleasedWhenClosed = false
@@ -51,6 +51,41 @@ final class SettingsController: NSTabViewController, NSFontChanging {
 
     override func toolbarDefaultItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
         [.flexibleSpace] + super.toolbarDefaultItemIdentifiers(toolbar) + [.flexibleSpace]
+    }
+
+    override func toolbar(_ toolbar: NSToolbar, itemForItemIdentifier identifier: NSToolbarItem.Identifier,
+                          willBeInsertedIntoToolbar flag: Bool) -> NSToolbarItem? {
+        guard let item = super.toolbar(toolbar, itemForItemIdentifier: identifier, willBeInsertedIntoToolbar: flag) else {
+            return nil
+        }
+        guard let index = tabViewItems.firstIndex(where: { ($0.identifier as? String) == identifier.rawValue }) else {
+            return item
+        }
+        let button = NSButton(title: item.label, target: self, action: #selector(selectPage(_:)))
+        button.image = item.image?.withSymbolConfiguration(.init(pointSize: 13, weight: .regular))
+        button.imagePosition = .imageLeading
+        button.font = .systemFont(ofSize: 13)
+        button.bezelStyle = .texturedRounded
+        button.isBordered = false
+        button.setButtonType(.pushOnPushOff)
+        button.tag = index
+        button.state = selectedTabViewItemIndex == index ? .on : .off
+        button.toolTip = item.label
+        item.view = button
+        return item
+    }
+
+    @objc private func selectPage(_ sender: NSButton) {
+        selectedTabViewItemIndex = sender.tag
+        sender.state = .on
+    }
+
+    override func tabView(_ tabView: NSTabView, didSelect tabViewItem: NSTabViewItem?) {
+        super.tabView(tabView, didSelect: tabViewItem)
+        for item in view.window?.toolbar?.items ?? [] {
+            guard let button = item.view as? NSButton else { continue }
+            button.state = button.tag == selectedTabViewItemIndex ? .on : .off
+        }
     }
 
     override func tabView(_ tabView: NSTabView, willSelect tabViewItem: NSTabViewItem?) {
