@@ -13,13 +13,13 @@ open dist/NetSpeed.app
 
 生成的 `dist/NetSpeed.app` 可直接双击，也可手动拖到“应用程序”。这是本机临时签名构建，未做 Apple 公证。开发时可用 `swift run NetSpeed`，或在 Xcode 中打开 `Package.swift`。
 
-打包 v1.0.1 安装映像：
+打包 v1.1.0 安装映像：
 
 ```bash
 bash scripts/build-dmg.sh
 ```
 
-脚本读取 `Resources/Info.plist` 中的版本号，重新构建并生成 `dist/NetSpeed-v1.0.1-<架构>.dmg`。映像内包含应用和“应用程序”文件夹快捷方式，可拖入安装；使用当前 Mac 的架构构建，不是通用二进制。当前版本为 `1.0.1`，构建号为 `4`（新增菜单栏实时网速，保留面板内存优化及内核进程采样修复）。
+脚本读取 `Resources/Info.plist` 中的版本号，重新构建并生成 `dist/NetSpeed-v1.1.0-<架构>.dmg`。映像内包含应用和“应用程序”文件夹快捷方式，可拖入安装；使用当前 Mac 的架构构建，不是通用二进制。当前版本为 `1.1.0`，构建号为 `5`（新增网络地址信息、按需查询及菜单栏显示设置）。
 
 ## 使用
 
