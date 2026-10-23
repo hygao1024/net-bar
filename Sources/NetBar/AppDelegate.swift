@@ -1,6 +1,6 @@
 import AppKit
 import SwiftUI
-import NetSpeedCore
+import NetBarCore
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSWindowDelegate {

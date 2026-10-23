@@ -2,12 +2,12 @@
 import PackageDescription
 
 let package = Package(
-    name: "NetSpeed",
+    name: "NetBar",
     platforms: [.macOS(.v13)],
-    products: [.executable(name: "NetSpeed", targets: ["NetSpeed"])],
+    products: [.executable(name: "NetBar", targets: ["NetBar"])],
     targets: [
-        .target(name: "NetSpeedCore"),
-        .executableTarget(name: "NetSpeed", dependencies: ["NetSpeedCore"]),
-        .testTarget(name: "NetSpeedCoreTests", dependencies: ["NetSpeedCore"])
+        .target(name: "NetBarCore"),
+        .executableTarget(name: "NetBar", dependencies: ["NetBarCore"]),
+        .testTarget(name: "NetBarCoreTests", dependencies: ["NetBarCore"])
     ]
 )

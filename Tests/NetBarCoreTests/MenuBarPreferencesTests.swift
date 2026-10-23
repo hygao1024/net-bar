@@ -1,6 +1,6 @@
 import Foundation
 import Testing
-@testable import NetSpeedCore
+@testable import NetBarCore
 
 @Suite("菜单栏显示设置")
 struct MenuBarPreferencesTests {
@@ -35,7 +35,7 @@ struct MenuBarPreferencesTests {
 
     @Test("设置自动保存，重建后保留；仅图标不会清除样式")
     @MainActor func persistence() throws {
-        let suite = "NetSpeed.tests.\(UUID().uuidString)"
+        let suite = "NetBar.tests.\(UUID().uuidString)"
         let defaults = try #require(UserDefaults(suiteName: suite))
         defer { defaults.removePersistentDomain(forName: suite) }
         let preferences = MenuBarPreferences(defaults: defaults)
@@ -64,7 +64,7 @@ struct MenuBarPreferencesTests {
 
     @Test("字号边界、损坏数据与恢复默认")
     @MainActor func fontSizeValidation() throws {
-        let suite = "NetSpeed.tests.\(UUID().uuidString)"
+        let suite = "NetBar.tests.\(UUID().uuidString)"
         let defaults = try #require(UserDefaults(suiteName: suite))
         defer { defaults.removePersistentDomain(forName: suite) }
         for stored in ["-1", "100", "\"wrong\"", "null"] {
@@ -90,7 +90,7 @@ struct MenuBarPreferencesTests {
 
     @Test("损坏或旧设置逐字段恢复，未知模式不会隐藏入口")
     @MainActor func invalidPersistence() throws {
-        let suite = "NetSpeed.tests.\(UUID().uuidString)"
+        let suite = "NetBar.tests.\(UUID().uuidString)"
         let defaults = try #require(UserDefaults(suiteName: suite))
         defer { defaults.removePersistentDomain(forName: suite) }
         defaults.set(Data("broken".utf8), forKey: MenuBarPreferences.storageKey)

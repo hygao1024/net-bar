@@ -1,9 +1,9 @@
 import AppKit
 import SwiftUI
-import NetSpeedCore
+import NetBarCore
 
 @main
-struct NetSpeedApp: App {
+struct NetBarApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
 
     var body: some Scene {

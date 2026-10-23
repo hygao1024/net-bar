@@ -1,6 +1,6 @@
 import AppKit
 import SwiftUI
-import NetSpeedCore
+import NetBarCore
 
 struct MenuBarSettingsView: View {
     static let width: CGFloat = 420

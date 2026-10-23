@@ -1,6 +1,6 @@
 import AppKit
 import SwiftUI
-import NetSpeedCore
+import NetBarCore
 
 enum PanelLayout {
     static let width: CGFloat = 380
@@ -91,7 +91,7 @@ struct TrafficPanel: View {
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text("应用网速")
+            Text("NetBar")
                 .font(.system(size: 13, weight: .medium))
                 .foregroundStyle(Color(nsColor: .systemBlue))
                 .accessibilityAddTraits(.isHeader)
@@ -182,13 +182,13 @@ struct TrafficPanel: View {
                 .toggleStyle(.switch)
                 .controlSize(.mini)
                 .fixedSize()
-                .help("登录 Mac 后自动启动应用网速")
+                .help("登录 Mac 后自动启动 NetBar")
                 .accessibilityValue(loginNeedsApproval ? "等待系统批准，尚未生效" : launchAtLogin.wrappedValue ? "已开启" : "已关闭")
             if loginNeedsApproval {
                 Button("待批准", action: openLoginSettings)
                     .buttonStyle(.borderless)
                     .foregroundStyle(Color(nsColor: .systemBlue))
-                    .help("在系统设置的登录项中允许应用网速启动")
+                    .help("在系统设置的登录项中允许 NetBar 启动")
             }
             Spacer(minLength: 8)
             Button(action: openSettings) {
@@ -202,8 +202,8 @@ struct TrafficPanel: View {
                 .buttonStyle(.borderless)
                 .foregroundStyle(Color(nsColor: .systemBlue))
                 .keyboardShortcut("q", modifiers: .command)
-                .help("退出应用网速（⌘Q）")
-                .accessibilityLabel("退出应用网速")
+                .help("退出 NetBar（⌘Q）")
+                .accessibilityLabel("退出 NetBar")
         }
         .font(.system(size: 11))
         .foregroundStyle(.secondary)

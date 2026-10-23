@@ -1,6 +1,6 @@
 import AppKit
 import CoreText
-import NetSpeedCore
+import NetBarCore
 
 /// 在独立进程中验证真实菜单栏控件与系统计数；不操作现有应用或系统电源状态。
 @main
@@ -137,7 +137,7 @@ struct CheckMenuBar {
     @MainActor static func main() async throws {
         _ = NSApplication.shared
         try checkTextLayout()
-        let suite = "NetSpeed.menuBarCheck.\(UUID().uuidString)"
+        let suite = "NetBar.menuBarCheck.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suite)!
         defer { defaults.removePersistentDomain(forName: suite) }
         let preferences = MenuBarPreferences(defaults: defaults)
@@ -213,7 +213,7 @@ struct CheckMenuBar {
         try await Task.sleep(for: .milliseconds(150))
         precondition(occupiedWidth() < defaultWidth, "仅图标模式应缩小实际占位")
         try await Task.sleep(for: .milliseconds(1200))
-        precondition(button.toolTip == "应用网速 · 点击查看应用明细")
+        precondition(button.toolTip == "NetBar · 点击查看应用明细")
         preferences.appearance.mode = .speedOnly
         preferences.appearance.compactUnits = true
         preferences.appearance.showsArrows = false

@@ -1,6 +1,6 @@
 import AppKit
 import SwiftUI
-import NetSpeedCore
+import NetBarCore
 import Darwin
 
 @MainActor
@@ -43,7 +43,7 @@ struct CheckPanelMemory {
         popover.contentViewController = NSHostingController(rootView:
             TrafficView(monitor: monitor, loginItem: LoginItemController()))
         #else
-        let suite = "NetSpeed.panelMemoryCheck.\(UUID().uuidString)"
+        let suite = "NetBar.panelMemoryCheck.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suite)!
         defer { defaults.removePersistentDomain(forName: suite) }
         let preferences = MenuBarPreferences(defaults: defaults)

@@ -1,6 +1,6 @@
 import Foundation
 import Testing
-@testable import NetSpeedCore
+@testable import NetBarCore
 
 @MainActor
 private final class ControlledSampler: TrafficSampling {

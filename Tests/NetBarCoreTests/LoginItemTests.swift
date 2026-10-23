@@ -1,6 +1,6 @@
 import ServiceManagement
 import Testing
-@testable import NetSpeedCore
+@testable import NetBarCore
 
 @MainActor
 private final class LoginServiceStub: LoginItemServicing {

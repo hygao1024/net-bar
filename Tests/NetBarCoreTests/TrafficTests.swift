@@ -1,6 +1,6 @@
 import Foundation
 import Testing
-@testable import NetSpeedCore
+@testable import NetBarCore
 
 @Suite("流量解析与显示")
 struct TrafficTests {

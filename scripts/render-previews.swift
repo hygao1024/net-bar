@@ -1,6 +1,6 @@
 import AppKit
 import SwiftUI
-import NetSpeedCore
+import NetBarCore
 
 /// 只生成本地视图图片，不显示窗口、不操作用户界面，也不启动采样。
 @main
@@ -23,7 +23,7 @@ struct RenderPreviews {
             ProcessTraffic(pid: 360, name: "apsd", download: 0, upload: 0),
             ProcessTraffic(pid: 700, name: "sharingd", download: 0, upload: 0)
         ]
-        let suite = "NetSpeed.previews.\(UUID().uuidString)"
+        let suite = "NetBar.previews.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suite)!
         defer { defaults.removePersistentDomain(forName: suite) }
         let preferences = MenuBarPreferences(defaults: defaults)

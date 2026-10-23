@@ -2,10 +2,10 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <key>CFBundleExecutable</key><string>NetSpeed</string>
+    <key>CFBundleExecutable</key><string>NetBar</string>
     <key>CFBundleIdentifier</key><string>com.hygao1024.net-speed</string>
-    <key>CFBundleName</key><string>NetSpeed</string>
-    <key>CFBundleDisplayName</key><string>应用网速</string>
+    <key>CFBundleName</key><string>NetBar</string>
+    <key>CFBundleDisplayName</key><string>NetBar</string>
     <key>CFBundlePackageType</key><string>APPL</string>
     <key>CFBundleIconFile</key><string>AppIcon</string>
     <key>CFBundleShortVersionString</key><string>1.1.0</string>

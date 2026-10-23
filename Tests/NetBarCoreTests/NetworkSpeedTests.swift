@@ -1,7 +1,7 @@
 import Darwin
 import Foundation
 import Testing
-@testable import NetSpeedCore
+@testable import NetBarCore
 
 @Suite("菜单栏整机网速")
 struct NetworkSpeedTests {

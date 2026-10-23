@@ -1,6 +1,6 @@
 import AppKit
 import SwiftUI
-import NetSpeedCore
+import NetBarCore
 
 struct NetworkAddressesView: View {
     let snapshot: NetworkPanelSnapshot

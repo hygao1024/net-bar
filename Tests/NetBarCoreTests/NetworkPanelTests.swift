@@ -1,6 +1,6 @@
 import Foundation
 import Testing
-@testable import NetSpeedCore
+@testable import NetBarCore
 
 private actor AddressProbe {
     private(set) var calls = 0

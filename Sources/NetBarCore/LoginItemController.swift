@@ -45,7 +45,7 @@ public final class LoginItemController: ObservableObject {
         refresh()
         guard enabled != isRequested else { return }
         guard isAppBundle else {
-            errorMessage = "请先打开打包后的 NetSpeed.app，再设置开机启动。"
+            errorMessage = "请先打开打包后的 NetBar.app，再设置开机启动。"
             return
         }
         do {

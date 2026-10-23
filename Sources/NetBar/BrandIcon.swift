@@ -56,7 +56,7 @@ enum BrandIcon {
             return true
         }
         image.isTemplate = true
-        image.accessibilityDescription = "应用网速"
+        image.accessibilityDescription = "NetBar"
         return image
     }
 }

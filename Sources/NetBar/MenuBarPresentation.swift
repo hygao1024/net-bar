@@ -1,6 +1,6 @@
 import AppKit
 import CoreText
-import NetSpeedCore
+import NetBarCore
 
 @MainActor
 enum MenuBarPresentation {
@@ -14,10 +14,10 @@ enum MenuBarPresentation {
         button.image = image(state: state, appearance: appearance)
         // 让 variableLength 跟随新图像尺寸，边距交给系统，避免固定长度重复预留空间。
         button.invalidateIntrinsicContentSize()
-        let detail = appearance.mode.showsSpeed ? description(state) : "应用网速"
+        let detail = appearance.mode.showsSpeed ? description(state) : "NetBar"
         button.toolTip = appearance.mode.showsSpeed
             ? "\(detail)\nWi-Fi / 以太网接口合计 · 点击查看应用明细"
-            : "应用网速 · 点击查看应用明细"
+            : "NetBar · 点击查看应用明细"
         button.setAccessibilityLabel("\(detail)，点击查看应用明细")
     }
 
