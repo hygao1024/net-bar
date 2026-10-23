@@ -115,3 +115,17 @@ bash scripts/render-previews.sh
 内存检查脚本使用固定 60 行示例数据离屏渲染，验证关闭后控制器释放、采样停止、重开保留排序及图标缩略图尺寸，并输出物理内存占用。它不打开窗口、不读取真实网络、不修改登录项；数值不等同于完整应用在真实桌面上的占用。界面预览脚本输出到 `.build/ui-previews/`，场景与限制见[界面设计说明](docs/interface-design.md#可访问性与验证)。
 
 人工检查：启动但不展开时菜单栏数字持续更新，且无此程序启动的 `nettop`；展开时有数据并可排序；关闭后 `nettop` 退出，菜单栏继续更新；快速反复开关不会显示旧样本。可用 `pgrep -P <NetBar 的 PID> nettop` 检查子进程。实际登录自启需在固定安装位置开启后注销并重新登录验证，自动化检查不能替代。
+
+### README 产品截图
+
+README 引用 `docs/images/` 中的界面图片，使用真实应用视图和预览脚本中的示例数据。界面变化后重新生成，再同步选定图片；不要用真实公网地址或桌面截屏替换示例内容。
+
+```bash
+bash scripts/render-previews.sh
+mkdir -p docs/images
+cp .build/ui-previews/light-traffic.png docs/images/panel-light.png
+cp .build/ui-previews/dark-traffic.png docs/images/panel-dark.png
+cp .build/ui-previews/light-settings-iconAndSpeed.png docs/images/menu-bar-settings.png
+```
+
+检查浅深色文字、完整面板和设置预览是否清晰，确认 README 图片路径有效。进程图标取自本机运行的应用，未运行时可能显示通用图标；这些差异不代表产品功能变化。

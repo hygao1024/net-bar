@@ -29,8 +29,8 @@ struct RenderPreviews {
         let preferences = MenuBarPreferences(defaults: defaults)
         var network = NetworkPanelSnapshot()
         network.localAddresses = [LocalAddress(interface: "en0", address: "192.168.1.126", version: .v4)]
-        network.ipv4 = .available(PublicAddress(address: "203.0.113.42", countryCode: "JP"))
-        network.ipv6 = .available(PublicAddress(address: "2001:db8:abcd:1234:5678:90ab:cdef:1234", countryCode: "JP"))
+        network.ipv4 = .available(PublicAddress(address: "203.0.113.42", countryCode: "CN"))
+        network.ipv6 = .available(PublicAddress(address: "2001:db8:abcd:1234:5678:90ab:cdef:1234", countryCode: "CN"))
         for dark in [false, true] {
             let mode = dark ? "dark" : "light"
             preferences.appearance = MenuBarAppearance()
