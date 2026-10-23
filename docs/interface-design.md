@@ -67,7 +67,7 @@
 
 执行 `bash scripts/render-previews.sh` 可在 `.build/ui-previews/` 生成真实 SwiftUI 视图的离屏预览，包括浅色、深色、短列表、滚动列表、加载、空列表、错误状态、网络查询失败、多接口与长 IPv6，以及开机启动开启／待批准状态。预览使用示例速率，不采样网络，也不修改系统外观。
 
-网络信息中本机地址独立滚动，避免多网卡撑大整个面板。公网 IPv4 和 IPv6 分别显示加载、地址或暂不可用；地区查询失败不隐藏地址。点击地址复制，并短暂显示“已复制”，刷新按钮强制重新查询。国家旗帜提供地区名称辅助标签。查询服务、缓存和网络变化规则见 [README](../README.md#数据与生命周期)，地址查询决策见 [网络信息](notes/implemented/feature/2026-10-22-network-overview.md)，面板布局调整见 [移除总览与趋势](notes/implemented/feature/2026-10-22-remove-network-summary.md)。
+网络信息中本机地址独立滚动，避免多网卡撑大整个面板。公网 IPv4 和 IPv6 分别显示加载、地址或暂不可用；地区查询失败不隐藏地址。点击地址复制，并短暂显示“已复制”，刷新按钮强制重新查询。国家旗帜提供地区名称辅助标签。查询服务与隐私说明见 [README](../README.md#数据与隐私)，缓存和网络变化规则见 [AGENTS.md](../AGENTS.md#网络地址查询)，地址查询决策见 [网络信息](notes/implemented/feature/2026-10-22-network-overview.md)，面板布局调整见 [移除总览与趋势](notes/implemented/feature/2026-10-22-remove-network-summary.md)。
 
 ## 菜单栏设置
 
