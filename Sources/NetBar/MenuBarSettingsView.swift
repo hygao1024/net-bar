@@ -3,7 +3,7 @@ import SwiftUI
 import NetBarCore
 
 struct MenuBarSettingsView: View {
-    static let width: CGFloat = 420
+    static let width: CGFloat = 480
     static let height: CGFloat = 500
 
     @ObservedObject var preferences: MenuBarPreferences
@@ -91,6 +91,7 @@ struct MenuBarSettingsView: View {
                 .disabled(!preferences.appearance.mode.showsSpeed)
             }
             .formStyle(.grouped)
+            .scrollContentBackground(.hidden)
             .scrollDisabled(true)
 
             HStack {
@@ -106,5 +107,163 @@ struct MenuBarSettingsView: View {
         }
         .frame(width: Self.width, height: Self.height)
         .background(Color(nsColor: .windowBackgroundColor))
+    }
+}
+
+enum SettingsPage: String, CaseIterable {
+    case menuBar = "菜单栏"
+    case updates = "软件更新"
+}
+
+struct SettingsView: View {
+    static let width: CGFloat = 480
+    static let height: CGFloat = 560
+    @ObservedObject var preferences: MenuBarPreferences
+    @ObservedObject var updates: UpdateController
+    @State var page: SettingsPage = .menuBar
+
+    var body: some View {
+        VStack(spacing: 0) {
+            Picker("设置", selection: $page) {
+                ForEach(SettingsPage.allCases, id: \.self) { page in
+                    Text(page.rawValue).tag(page)
+                }
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .frame(width: 240)
+            .padding(.vertical, 16)
+            Divider()
+            if page == .menuBar {
+                MenuBarSettingsView(preferences: preferences)
+            } else {
+                UpdateSettingsView(updates: updates)
+                    .frame(maxHeight: .infinity)
+            }
+        }
+        .frame(width: Self.width, height: Self.height)
+        .background(Color(nsColor: .windowBackgroundColor))
+    }
+}
+
+struct UpdateSettingsView: View {
+    @ObservedObject var updates: UpdateController
+
+    private var appIcon: NSImage {
+        NSImage(size: NSSize(width: 80, height: 80), flipped: false) { rect in
+            guard let context = NSGraphicsContext.current?.cgContext else { return false }
+            BrandIcon.drawAppIcon(in: rect, context: context)
+            return true
+        }
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            VStack(spacing: 6) {
+                Image(nsImage: appIcon).accessibilityHidden(true)
+                Text("NetBar").font(.system(size: 24, weight: .semibold))
+                Text("版本 \(updates.version)")
+                    .font(.system(size: 12)).foregroundStyle(.secondary)
+            }
+            .padding(.top, 18)
+            .padding(.bottom, 20)
+
+            VStack(alignment: .leading, spacing: 14) {
+                HStack(alignment: .center, spacing: 12) {
+                    if updates.status.isBusy {
+                        ProgressView().controlSize(.small).frame(width: 24)
+                    } else {
+                        Image(systemName: statusSymbol)
+                            .font(.system(size: 21, weight: .regular))
+                            .foregroundStyle(statusColor)
+                            .frame(width: 24)
+                            .accessibilityHidden(true)
+                    }
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(updates.status.title).font(.system(size: 13, weight: .semibold))
+                        Text(updates.status.detail)
+                            .font(.system(size: 11)).foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    Spacer(minLength: 0)
+                }
+                HStack {
+                    Text(lastCheckText).font(.system(size: 10)).foregroundStyle(.secondary)
+                    Spacer(minLength: 8)
+                    Button(action: { updates.checkForUpdates() }) {
+                        Text(checkTitle).frame(minWidth: 70)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(!updates.canCheck)
+                }
+            }
+            .padding(16)
+            .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 10))
+            .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color(nsColor: .separatorColor).opacity(0.35)))
+            .padding(.horizontal, 24)
+
+            Form {
+                Section {
+                    Toggle(isOn: Binding(get: { updates.automaticChecks }, set: { updates.setAutomaticChecks($0) })) {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("自动检查更新")
+                            Text("每天检查，及时获取新版本。")
+                                .font(.system(size: 11)).foregroundStyle(.secondary)
+                        }
+                    }
+                    Toggle(isOn: Binding(get: { updates.automaticDownloads }, set: { updates.setAutomaticDownloads($0) })) {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("自动下载并安装")
+                            Text("后台下载，退出时安装；需要授权时会提示。")
+                                .font(.system(size: 11)).foregroundStyle(.secondary)
+                        }
+                    }
+                    .disabled(!updates.automaticChecks)
+                }
+            }
+            .formStyle(.grouped)
+            .scrollContentBackground(.hidden)
+            .scrollDisabled(true)
+            .disabled(!updates.isEnabled)
+
+            HStack(spacing: 4) {
+                Text("更新来自 GitHub").foregroundStyle(.secondary)
+                Text("·").foregroundStyle(.tertiary)
+                Link("查看发布说明", destination: UpdateController.releasesURL)
+            }
+            .font(.system(size: 11))
+            .padding(.bottom, 18)
+        }
+    }
+
+    private var lastCheckText: String {
+        guard let date = updates.lastCheck else { return "尚未检查更新" }
+        return "上次检查：\(date.formatted(date: .abbreviated, time: .shortened))"
+    }
+
+    private var checkTitle: String {
+        switch updates.status {
+        case .ready: return "安装更新…"
+        case .available: return "查看更新…"
+        case .failed: return "重试检查"
+        default: return "检查更新"
+        }
+    }
+
+    private var statusSymbol: String {
+        switch updates.status {
+        case .current: return "checkmark.circle"
+        case .available, .ready: return "arrow.down.circle"
+        case .failed, .unavailable: return "exclamationmark.circle"
+        default: return "arrow.triangle.2.circlepath"
+        }
+    }
+
+    private var statusColor: Color {
+        switch updates.status {
+        case .current: return .green
+        case .failed, .unavailable: return .secondary
+        default: return .accentColor
+        }
     }
 }

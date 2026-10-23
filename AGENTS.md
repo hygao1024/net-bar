@@ -56,7 +56,7 @@
 
 ## 开发与构建
 
-项目使用 Swift，要求 macOS 13+、Swift 6.0+ 的 Xcode Command Line Tools（命令行开发工具），无第三方依赖。开发时运行 `swift run NetBar`，或用 Xcode 打开 `Package.swift`；命令行运行不支持注册登录启动项。
+项目使用 Swift，要求 macOS 13+、Swift 6.0+ 的 Xcode Command Line Tools（命令行开发工具），更新功能依赖锁定版本的 Sparkle 2，首次构建需联网获取。开发时运行 `swift run NetBar`，或用 Xcode 打开 `Package.swift`；命令行运行不支持注册登录启动项或应用内更新。
 
 ```bash
 # 构建本机临时签名应用，输出 dist/NetBar.app
@@ -65,14 +65,14 @@ bash scripts/build-app.sh
 bash scripts/build-dmg.sh
 ```
 
-版本号与构建号以 [Resources/Info.plist](Resources/Info.plist) 为准。磁盘映像命名为 `dist/NetBar-v<版本>-<架构>.dmg`，包含应用与“应用程序”文件夹快捷方式。脚本使用当前 Mac 的架构构建，不生成通用二进制，也不执行 Apple 公证。
+版本号与构建号以 [Resources/Info.plist](Resources/Info.plist) 为准。磁盘映像命名为 `dist/NetBar-v<版本>-<架构>.dmg`，包含应用与“应用程序”文件夹快捷方式。脚本固定构建 arm64，不执行 Apple 公证。签名清单、密钥配置与 GitHub 发布流程见[发布文档](docs/releases.md)。
 
 Bundle ID（应用唯一标识）保留 `com.hygao1024.net-speed`，标准 UserDefaults（用户偏好存储）继续沿用原存储域；不要随品牌名称清理旧标识。更名与身份兼容的理由见 [NetBar 命名决策](docs/notes/implemented/architecture/2026-10-23-netbar-identity.md)。
 
 ## 模块与运行机制
 
 - `NetBarCore`：解析、格式化、排序、网卡计数、网络地址和采样／查询生命周期。
-- `NetBar`：AppKit 菜单栏／弹出面板、SwiftUI 网络信息与列表；面板事件控制进程采样和地址查询。
+- `NetBar`：AppKit 菜单栏／弹出面板、SwiftUI 网络信息、列表与设置；面板事件控制进程采样和地址查询，应用级 `UpdateController` 管理 Sparkle 接入。
 
 ### 网速采样
 
@@ -96,6 +96,12 @@ Bundle ID（应用唯一标识）保留 `com.hygao1024.net-speed`，标准 UserD
 
 开机启动使用 macOS 13+ 的 `SMAppService.mainApp`，状态随系统登录项同步。移动或重新构建应用后，可能需要关闭并重新开启开关。自动化测试使用替身服务，不修改本机登录项。
 
+### 软件更新
+
+`UpdateController` 在应用启动后创建 Sparkle 更新器，默认每天检查并自动下载，退出时安装；设置窗口只投影状态和转发操作，关闭窗口不终止更新。Sparkle 拥有调度、偏好、版本比较、下载、取消、验签和安装生命周期。应用不维护第二个定时器、版本比较器或偏好副本。
+
+`Info.plist` 保存更新源、公钥及默认策略；更新清单和包都要求签名，包在解压前验证，清单失败不超时降级。更新私钥仅存在专用钥匙串账户及 GitHub Secret，开发与预览不访问它。实际下载安装必须在打包后的应用中运行；未配置公钥时显示不可用原因。Bundle ID 和偏好域保持兼容。
+
 ## 验证入口
 
 按实际变化选择以下命令；它们不是每次修改都必须执行的完整检查清单。
@@ -108,11 +114,15 @@ bash scripts/check-menu-bar.sh
 # 可选：包含真实公网请求的面板生命周期检查
 bash scripts/check-menu-bar.sh --network
 bash scripts/render-previews.sh
+bash scripts/check-updates.sh
+python3 scripts/check-release-tools.py
 ```
 
 菜单栏检查脚本会短暂创建一个独立菜单栏项目，验证真实网卡读取、设置切换与恢复、窗口释放，以及本进程内模拟的休眠／会话通知，并在 `.build/menu-bar-previews/` 输出真实菜单栏按钮的浅深色预览；不改变系统电源状态，结束时移除该菜单栏项目。加 `--network` 同时验证仅图标模式展开时的 nettop 和公网查询组合，以及关闭、快速重开、请求取消后的状态与视图释放；日志只输出地址数量和查询状态，不打印地址。
 
 内存检查脚本使用固定 60 行示例数据离屏渲染，验证关闭后控制器释放、采样停止、重开保留排序及图标缩略图尺寸，并输出物理内存占用。它不打开窗口、不读取真实网络、不修改登录项；数值不等同于完整应用在真实桌面上的占用。界面预览脚本输出到 `.build/ui-previews/`，场景与限制见[界面设计说明](docs/interface-design.md#可访问性与验证)。
+
+更新检查脚本使用临时签名应用、临时密钥和回环服务，覆盖真实更新器的设置保存、无更新、取消、网络失败、签名拒绝、安装重启及后台退出安装；不触及正式密钥或登录项。正式发布下载、系统安装授权与登录项兼容需要另行验证，详见[发布文档](docs/releases.md)。
 
 人工检查：启动但不展开时菜单栏数字持续更新，且无此程序启动的 `nettop`；展开时有数据并可排序；关闭后 `nettop` 退出，菜单栏继续更新；快速反复开关不会显示旧样本。可用 `pgrep -P <NetBar 的 PID> nettop` 检查子进程。实际登录自启需在固定安装位置开启后注销并重新登录验证，自动化检查不能替代。
 
@@ -126,6 +136,7 @@ mkdir -p docs/images
 cp .build/ui-previews/light-traffic.png docs/images/panel-light.png
 cp .build/ui-previews/dark-traffic.png docs/images/panel-dark.png
 cp .build/ui-previews/light-settings-iconAndSpeed.png docs/images/menu-bar-settings.png
+cp .build/ui-previews/light-updates-idle.png docs/images/software-update.png
 ```
 
 检查浅深色文字、完整面板和设置预览是否清晰，确认 README 图片路径有效。进程图标取自本机运行的应用，未运行时可能显示通用图标；这些差异不代表产品功能变化。

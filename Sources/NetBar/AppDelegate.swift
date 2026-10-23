@@ -8,6 +8,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
     private let loginItem = LoginItemController()
     private let preferences = PanelPreferences()
     let menuBarPreferences: MenuBarPreferences
+    let updates = UpdateController()
     private(set) var settingsWindow: NSWindow?
     let networkPanel = NetworkPanelModel()
     private let menuBarMonitor = MenuBarSpeedMonitor()
@@ -28,6 +29,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
+        updates.start()
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         statusItem = item
         if let button = item.button {
@@ -126,9 +128,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
 
     func prepareSettings() {
         if settingsWindow == nil {
-            let controller = NSHostingController(rootView: MenuBarSettingsView(preferences: menuBarPreferences))
+            let controller = NSHostingController(rootView: SettingsView(preferences: menuBarPreferences, updates: updates))
             let window = NSWindow(contentViewController: controller)
-            window.title = "菜单栏设置"
+            window.title = "NetBar 设置"
             window.styleMask = [.titled, .closable, .miniaturizable]
             window.isReleasedWhenClosed = false
             window.delegate = self

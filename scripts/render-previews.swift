@@ -36,21 +36,32 @@ struct RenderPreviews {
             preferences.appearance = MenuBarAppearance()
             for display in MenuBarDisplayMode.allCases {
                 preferences.appearance.mode = display
-                try render(MenuBarSettingsView(preferences: preferences), name: "\(mode)-settings-\(display.rawValue)",
-                           dark: dark, output: output, width: MenuBarSettingsView.width, height: MenuBarSettingsView.height)
+                try render(SettingsView(preferences: preferences, updates: UpdateController(preview: .idle)), name: "\(mode)-settings-\(display.rawValue)",
+                           dark: dark, output: output, width: SettingsView.width, height: SettingsView.height)
+            }
+            let updateStates: [(String, UpdateController.Status)] = [
+                ("idle", .idle), ("checking", .checking), ("current", .current),
+                ("available", .available("1.3.0")), ("downloading", .downloading("1.3.0")),
+                ("ready", .ready("1.3.0")), ("error", .failed),
+                ("unavailable", .unavailable("此构建尚未配置更新验证，请从发布页获取正式版本。"))
+            ]
+            for (name, status) in updateStates {
+                try render(SettingsView(preferences: preferences, updates: UpdateController(preview: status), page: .updates),
+                           name: "\(mode)-updates-\(name)", dark: dark, output: output,
+                           width: SettingsView.width, height: SettingsView.height)
             }
             preferences.appearance.fontSize = 12
             preferences.appearance.mode = .iconAndSpeed
-            try render(MenuBarSettingsView(preferences: preferences), name: "\(mode)-settings-large-font",
-                       dark: dark, output: output, width: MenuBarSettingsView.width, height: MenuBarSettingsView.height)
+            try render(SettingsView(preferences: preferences, updates: UpdateController(preview: .idle)), name: "\(mode)-settings-large-font",
+                       dark: dark, output: output, width: SettingsView.width, height: SettingsView.height)
             preferences.appearance.fontSize = 9
             preferences.appearance.mode = .speedOnly
             preferences.appearance.compactUnits = true
             preferences.appearance.showsArrows = false
             preferences.appearance.decimalPlaces = 2
             preferences.appearance.fontName = "Menlo-Regular"
-            try render(MenuBarSettingsView(preferences: preferences), name: "\(mode)-settings-compact",
-                       dark: dark, output: output, width: MenuBarSettingsView.width, height: MenuBarSettingsView.height)
+            try render(SettingsView(preferences: preferences, updates: UpdateController(preview: .idle)), name: "\(mode)-settings-compact",
+                       dark: dark, output: output, width: SettingsView.width, height: SettingsView.height)
             try render(TrafficPanel(rows: rows, updatedAt: date, errorMessage: nil, network: network), name: "\(mode)-traffic", dark: dark, output: output)
             try render(TrafficPanel(rows: rows, updatedAt: date, errorMessage: nil, network: network, launchAtLogin: .constant(true)), name: "\(mode)-login-enabled", dark: dark, output: output)
             try render(TrafficPanel(rows: rows, updatedAt: date, errorMessage: nil, network: network, launchAtLogin: .constant(true), loginNeedsApproval: true), name: "\(mode)-login-approval", dark: dark, output: output)
@@ -90,6 +101,7 @@ struct RenderPreviews {
         NSApp.appearance = NSAppearance(named: appearance)
         let content = panel
             .environment(\.colorScheme, dark ? .dark : .light)
+            .environment(\.controlActiveState, .active)
         let view = NSHostingView(rootView: content)
         let bounds = NSRect(x: 0, y: 0, width: width, height: height)
         let window = NSWindow(contentRect: bounds, styleMask: .borderless, backing: .buffered, defer: false)

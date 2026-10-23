@@ -2,10 +2,10 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-bash scripts/build-app.sh
+bash scripts/build-app.sh "$@"
 app_dir="$PWD/dist/NetBar.app"
 version=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$app_dir/Contents/Info.plist")
-arch=$(/usr/bin/uname -m)
+arch=arm64
 dmg_path="$PWD/dist/NetBar-v${version}-${arch}.dmg"
 
 /usr/bin/codesign --verify --deep --strict "$app_dir"

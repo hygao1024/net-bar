@@ -1,0 +1,40 @@
+name: 发布 NetBar
+on:
+  push:
+    tags: ['v*']
+permissions:
+  contents: write
+concurrency:
+  group: netbar-release
+  cancel-in-progress: false
+jobs:
+  release:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: 验证版本与发布密钥
+        env:
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+          RELEASE_TAG: ${{ github.ref_name }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          test -n "$SPARKLE_PRIVATE_KEY" || { echo '请配置 SPARKLE_PRIVATE_KEY 仓库密钥'; exit 1; }
+          version=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' Resources/Info.plist)
+          test "$RELEASE_TAG" = "v$version"
+          /usr/libexec/PlistBuddy -c 'Print :SUPublicEDKey' Resources/Info.plist > /dev/null
+          python3 scripts/check-release-version.py "$RELEASE_TAG"
+      - name: 核心测试
+        run: swift test
+      - name: 构建并签名更新产物
+        env:
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: bash scripts/prepare-release.sh "$RELEASE_TAG"
+      - name: 上传完整产物并发布
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          gh release create "$RELEASE_TAG" --verify-tag --draft --title "NetBar $RELEASE_TAG" --generate-notes \
+            "dist/$RELEASE_TAG/NetBar-$RELEASE_TAG-arm64.dmg" "dist/$RELEASE_TAG/appcast.xml"
+          gh release edit "$RELEASE_TAG" --draft=false --latest
