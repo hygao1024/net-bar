@@ -2,6 +2,12 @@ name: 发布 NetBar
 on:
   push:
     tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: '需要发布的已有附注标签，例如 v1.3.0'
+        required: true
+        type: string
 permissions:
   contents: write
 concurrency:
@@ -13,16 +19,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ inputs.tag || github.ref_name }}
           fetch-depth: 0
       - name: 验证版本与发布密钥
         env:
           SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
-          RELEASE_TAG: ${{ github.ref_name }}
+          RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
           GH_TOKEN: ${{ github.token }}
         run: |
           test -n "$SPARKLE_PRIVATE_KEY" || { echo '请配置 SPARKLE_PRIVATE_KEY 仓库密钥'; exit 1; }
           version=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' Resources/Info.plist)
           test "$RELEASE_TAG" = "v$version"
+          test "$(git rev-parse HEAD)" = "$(git rev-parse "refs/tags/$RELEASE_TAG^{commit}")"
           /usr/libexec/PlistBuddy -c 'Print :SUPublicEDKey' Resources/Info.plist > /dev/null
           python3 scripts/check-release-version.py "$RELEASE_TAG"
           python3 scripts/check-release-notes.py "$RELEASE_TAG"
@@ -31,12 +39,12 @@ jobs:
       - name: 构建并签名更新产物
         env:
           SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
-          RELEASE_TAG: ${{ github.ref_name }}
+          RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
         run: bash scripts/prepare-release.sh "$RELEASE_TAG"
       - name: 上传完整产物并发布
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ github.ref_name }}
+          RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
         run: |
           gh release create "$RELEASE_TAG" --verify-tag --draft --title "NetBar $RELEASE_TAG" --notes-from-tag \
             "dist/$RELEASE_TAG/NetBar-$RELEASE_TAG-arm64.dmg" "dist/$RELEASE_TAG/appcast.xml"
