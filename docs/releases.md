@@ -43,26 +43,27 @@ bash scripts/prepare-release.sh v1.2.0
 
 脚本校验应用签名、磁盘映像、清单签名、版本与包签名。目录已存在时拒绝覆盖，需先检查并移走旧产物再重试。首次依赖解析需要访问 GitHub；本地打包使用钥匙串，CI（持续集成）通过标准输入读取 Secret。
 
-`python3 scripts/check-release-tools.py` 用隔离的 GitHub 命令替身检查标签不一致、构建号与版本倒退、公钥更换等拒绝路径，并在临时 Git 仓库检查附注说明、轻量标签、空白说明和缺失标签；当前版本的发布目录存在时，同时对真实产物执行错误清单和错误公钥的负向检查，不修改正式配置或产物。
+`python3 scripts/check-release-tools.py` 用隔离的 GitHub 命令替身检查标签不一致、构建号与版本倒退、公钥更换等拒绝路径，并在临时 Git 仓库通过真实创建入口检查 Markdown 原文保留、重复标签保护、无效确认稿，以及附注说明、轻量标签、空白说明和缺失标签；原稿比对必须拒绝标题被 Git 清理的标签；当前版本的发布目录存在时，同时对真实产物执行错误清单和错误公钥的负向检查，不修改正式配置或产物。
 
 ## GitHub 发布
 
 `.github/workflows/release.yml` 在推送 `v*` 标签时运行。发布说明以附注标签中的文本为准，工作流通过 `--notes-from-tag` 写入 GitHub Release 正文，不再自动生成说明。工作流按标签名称检出完整历史与标签，并核对工作区提交与标签目标一致；构建前拒绝轻量标签、缺失标签和空白说明，避免 GitHub CLI 将提交消息用作发布说明。
 
-先将经过确认的版本说明保存为 UTF-8 Markdown 文件，可包含版本标题、变更列表和安装限制。确认版本与构建号已递增、变更已提交并经过检查后，再明确执行发布。以下以待发布的 `v1.3.0` 为例，将文件路径替换为实际说明文件：
+先将经过确认的版本说明保存为 UTF-8 Markdown 文件，可包含版本标题、变更列表和安装限制。确认版本与构建号已递增、变更已提交并经过检查后，再明确执行发布。以下以未来的 `v1.4.0` 为例，将文件路径替换为实际说明文件：
 
 ```bash
-git tag -a v1.3.0 --cleanup=verbatim -F /path/to/release-notes.md
-python3 scripts/check-release-notes.py v1.3.0
+python3 scripts/create-release-tag.py v1.4.0 /path/to/release-notes.md
 git push origin main
-git push origin v1.3.0
+git push origin v1.4.0
 ```
 
-必须保留 `--cleanup=verbatim`，否则 Git 默认会将以 `#` 开头的 Markdown 标题当作注释删除。
+创建脚本固定使用 `--cleanup=verbatim`，避免 Git 将以 `#` 开头的 Markdown 标题当作注释删除，并读回标签与确认稿逐字节比对（仅忽略末尾换行）。空白、非 UTF-8 或不可读的确认稿在创建前被拒绝；已有标签不覆盖，创建后校验失败时保留标签供检查，不自动推送。也可用 `python3 scripts/check-release-notes.py <标签> --notes-file <说明文件>` 单独核对。工作流先运行发布工具回归检查，再运行核心测试。
 
 工作流先验证标签、版本递增及公钥连续性，再测试和打包；在草稿 Release（版本发布）中上传两份附件，全部成功后才公开并标记为最新版本。`prepare-release.sh` 本身不会推送标签或发布。失败时检查 Actions 日志；若已创建草稿而公开失败，确认附件完整后再公开草稿，不要重建或覆盖已经公开的版本附件。
 
 若失败发生在创建草稿前，可修复主分支上的工作流，然后用 `gh workflow run release.yml --ref main -f tag=v1.3.0` 按原标签重新发布。手动入口使用主分支工作流，但应用源码仍检出指定标签；不移动标签，也不将主分支后续产品修改混入安装包。已经公开的版本会被版本递增检查拒绝，已有草稿仍按上面的恢复规则处理。
+
+已公开版本若仅需修正发布说明，使用 `gh release edit <标签> --notes-file <确认稿>`，再读取发布正文核对；不重建安装包、不替换附件、不移动已发布标签。此时网页正文是修订后的说明，原标签保留发布时的历史文本。
 
 客户端地址固定为 `https://github.com/hygao1024/net-bar/releases/latest/download/appcast.xml`，清单内的安装包地址固定到对应版本标签。正式工作流不发布预发布版本；只有标签而没有完整 Release 附件时，不能提供应用内更新。首次发布之前，检查更新会显示失败，不能视为“已是最新版本”。
 

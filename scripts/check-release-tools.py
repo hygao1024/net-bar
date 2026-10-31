@@ -10,6 +10,7 @@ import tempfile
 repository = pathlib.Path(__file__).resolve().parent.parent
 actual = plistlib.loads((repository / "Resources/Info.plist").read_bytes())
 source = dict(actual, CFBundleVersion="6", CFBundleShortVersionString="1.2.0")
+(repository / ".build").mkdir(exist_ok=True)
 
 with tempfile.TemporaryDirectory(prefix="release-check-", dir=repository / ".build") as temporary:
     root = pathlib.Path(temporary)
@@ -51,10 +52,52 @@ print(os.environ['TEST_RELEASES'] if sys.argv[1] == 'release' else os.environ['T
         ).stdout
 
     git("init", "--quiet")
+    git("config", "user.name", "Release Check")
+    git("config", "user.email", "check@example.invalid")
+    git("config", "tag.gpgsign", "false")
     git("commit", "--allow-empty", "-m", "测试基线")
     notes = "## NetBar v1.2.0\n\n### 新增功能\n\n- 新增自动更新。\n- 优化设置。\n"
-    git("tag", "-a", "v1.2.0", "--cleanup=verbatim", "-m", notes)
+    notes_file = root / "发布说明 with spaces.md"
+    notes_file.write_text(notes, encoding="utf-8")
+
+    def create_tag(tag, path):
+        return subprocess.run(
+            ["python3", str(repository / "scripts/create-release-tag.py"), tag, str(path)],
+            cwd=root, capture_output=True, text=True,
+        )
+
+    result = create_tag("v1.2.0", notes_file)
+    assert result.returncode == 0, result.stderr
     assert git("for-each-ref", "refs/tags/v1.2.0", "--format=%(contents)").strip() == notes.strip()
+    print("通过：真实创建入口保留 Markdown 标题与中文正文")
+    original_tag = git("rev-parse", "refs/tags/v1.2.0")
+    result = create_tag("v1.2.0", notes_file)
+    assert result.returncode != 0
+    assert git("rev-parse", "refs/tags/v1.2.0") == original_tag
+    print("通过：重复标签被拒绝且原标签不变")
+    for name, contents in [("空白", b" \n\t\n"), ("非 UTF-8", b"\xff")]:
+        invalid_file = root / "invalid.md"
+        invalid_file.write_bytes(contents)
+        result = create_tag("v1.2.9", invalid_file)
+        assert result.returncode != 0 and "未创建标签" in result.stderr, result.stderr
+        assert git("tag", "--list", "v1.2.9") == ""
+        print(f"通过：{name}确认稿在创建标签前被拒绝")
+    result = create_tag("v1.2.9", root / "missing.md")
+    assert result.returncode != 0 and "未创建标签" in result.stderr, result.stderr
+    assert git("tag", "--list", "v1.2.9") == ""
+    print("通过：缺失确认稿在创建标签前被拒绝")
+    # 重现 Git 默认清理删除标题的故障，完整原稿校验必须拒绝。
+    git("tag", "-a", "v1.2.3", "--cleanup=strip", "-m", notes)
+    for tag, error in [("v1.2.0", None), ("v1.2.3", "与确认稿不一致")]:
+        result = subprocess.run(
+            ["python3", str(repository / "scripts/check-release-notes.py"), tag,
+             "--notes-file", str(notes_file)], cwd=root, capture_output=True, text=True,
+        )
+        if error is None:
+            assert result.returncode == 0, result.stderr
+        else:
+            assert result.returncode != 0 and error in result.stderr, result.stderr
+    print("通过：原文一致时放行，标题被清理时拒绝")
     git("tag", "v1.2.1")
     git("tag", "-a", "v1.2.2", "--cleanup=verbatim", "-m", " \n\t\n")
     for name, tag, error in [
