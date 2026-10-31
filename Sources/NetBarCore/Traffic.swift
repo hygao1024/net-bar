@@ -31,11 +31,13 @@ public enum TrafficSort: Sendable {
 }
 
 public enum TrafficRate {
-    public static func string(_ bytes: Double) -> String {
+    public static func string(_ bytes: Double, singleDecimal: Bool = false) -> String {
         let value = bytes.isFinite ? max(0, bytes) : 0
         let divisor = value >= 1_000_000 ? 1_000_000.0 : 1_000.0
         let unit = value >= 1_000_000 ? "MB/s" : "KB/s"
-        return String(format: "%.2f %@", locale: Locale(identifier: "en_US_POSIX"), value / divisor, unit)
+        let scaled = value / divisor
+        return String(format: singleDecimal ? "%.1f %@" : "%.2f %@",
+                      locale: Locale(identifier: "en_US_POSIX"), singleDecimal ? (scaled * 10).rounded() / 10 : scaled, unit)
     }
 }
 

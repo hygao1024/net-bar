@@ -28,7 +28,7 @@ struct NetworkAddressesView: View {
                         }
                     }
                 }
-                .frame(height: snapshot.localAddresses.count > 1 || snapshot.localAddresses.first?.version == .v6 ? 42 : 20)
+                .frame(height: snapshot.localAddresses.count > 1 ? 42 : 20)
             }
             Divider()
             publicRow("公网 IPv4", state: snapshot.ipv4)
@@ -63,9 +63,10 @@ struct NetworkAddressesView: View {
                     pasteboard.clearContents()
                     if pasteboard.setString(value, forType: .string) { copied = value }
                 } label: {
-                    Text(value.replacingOccurrences(of: ":", with: ":\u{200B}"))
+                    Text(value)
                         .font(.system(size: 11, design: .monospaced))
-                        .multilineTextAlignment(.leading).fixedSize(horizontal: false, vertical: true)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .buttonStyle(.plain)

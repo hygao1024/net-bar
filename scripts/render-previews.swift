@@ -82,14 +82,26 @@ struct RenderPreviews {
                                     LocalAddress(interface: "en1", address: "10.0.0.100", version: .v4)]
             try render(TrafficPanel(rows: rows, updatedAt: date, errorMessage: nil, network: multi),
                        name: "\(mode)-multiple-interfaces", dark: dark, output: output)
+            var ipv6Only = network
+            ipv6Only.localAddresses = [LocalAddress(interface: "en0", address: "fe80:abcd:1234:5678:90ab:cdef:1234:5678%en0", version: .v6)]
+            try render(TrafficPanel(rows: rows, updatedAt: date, errorMessage: nil, network: ipv6Only),
+                       name: "\(mode)-single-ipv6", dark: dark, output: output)
             let overflow = rows + (1...15).map {
                 ProcessTraffic(pid: Int32(2000 + $0), name: "后台进程 \($0)", download: 0, upload: 0)
             }
             try render(TrafficPanel(rows: overflow, updatedAt: date, errorMessage: nil, network: network), name: "\(mode)-overflow", dark: dark, output: output)
+            try render(TrafficPanel(rows: overflow, updatedAt: date, errorMessage: nil, network: network),
+                       name: "\(mode)-scrolled", dark: dark, output: output, scrollOffset: 39)
+            try render(TrafficPanel(rows: overflow, updatedAt: date, errorMessage: nil, network: multi),
+                       name: "\(mode)-scrolled-bottom", dark: dark, output: output, scrollOffset: .greatestFiniteMagnitude)
+            try render(TrafficPanel(rows: Array(rows.prefix(3)), updatedAt: date, errorMessage: nil, network: network),
+                       name: "\(mode)-short-list", dark: dark, output: output)
             try render(TrafficPanel(rows: [], updatedAt: nil, errorMessage: nil), name: "\(mode)-loading", dark: dark, output: output)
             try render(TrafficPanel(rows: [], updatedAt: date, errorMessage: nil), name: "\(mode)-empty", dark: dark, output: output)
             try render(TrafficPanel(rows: [], updatedAt: nil, errorMessage: "采样超时，请重试。"), name: "\(mode)-error", dark: dark, output: output)
             try render(TrafficPanel(rows: rows, updatedAt: date, errorMessage: nil, network: network), name: "\(mode)-contrast", dark: dark, increasedContrast: true, output: output)
+            try render(TrafficPanel(rows: rows, updatedAt: date, errorMessage: nil, network: network, reduceTransparency: true),
+                name: "\(mode)-reduced-transparency", dark: dark, output: output)
         }
         print("已生成界面预览：\(output.path)")
     }
@@ -120,7 +132,7 @@ struct RenderPreviews {
         return ProcessTraffic(pid: pid, name: name, download: down, upload: up)
     }
 
-    @MainActor private static func render<Content: View>(_ panel: Content, name: String, dark: Bool, increasedContrast: Bool = false, output: URL, width: CGFloat = PanelLayout.width, height: CGFloat = PanelLayout.height) throws {
+    @MainActor private static func render<Content: View>(_ panel: Content, name: String, dark: Bool, increasedContrast: Bool = false, output: URL, width: CGFloat = PanelLayout.width, height: CGFloat = PanelLayout.height, scrollOffset: CGFloat? = nil) throws {
         let appearance: NSAppearance.Name = increasedContrast
             ? (dark ? .accessibilityHighContrastDarkAqua : .accessibilityHighContrastAqua)
             : (dark ? .darkAqua : .aqua)
@@ -137,6 +149,20 @@ struct RenderPreviews {
         view.layoutSubtreeIfNeeded()
         RunLoop.main.run(until: Date().addingTimeInterval(0.1))
         view.layoutSubtreeIfNeeded()
+        if let scrollOffset {
+            func findList(_ root: NSView) -> NSScrollView? {
+                if let scroll = root as? NSScrollView, scroll.bounds.height > 100 { return scroll }
+                return root.subviews.lazy.compactMap { findList($0) }.first
+            }
+            guard let scroll = findList(view), let document = scroll.documentView else {
+                fatalError("进程列表预览缺少可滚动视图")
+            }
+            let bottom = max(0, document.bounds.height - scroll.contentView.bounds.height)
+            scroll.contentView.scroll(to: NSPoint(x: 0, y: min(scrollOffset, bottom)))
+            scroll.reflectScrolledClipView(scroll.contentView)
+            RunLoop.main.run(until: Date().addingTimeInterval(0.1))
+            view.layoutSubtreeIfNeeded()
+        }
         guard let bitmap = view.bitmapImageRepForCachingDisplay(in: bounds) else { fatalError("无法创建位图") }
         view.cacheDisplay(in: bounds, to: bitmap)
         guard let data = bitmap.representation(using: .png, properties: [:]) else { fatalError("无法编码 PNG") }

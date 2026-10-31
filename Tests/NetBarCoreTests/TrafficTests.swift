@@ -90,6 +90,16 @@ struct TrafficTests {
         #expect(TrafficRate.string(2_500_000) == "2.50 MB/s")
     }
 
+    @Test("进程列表按当前单位保留一位小数", arguments: [
+        (0.0, "0.0 KB/s"), (49.0, "0.0 KB/s"), (50.0, "0.1 KB/s"),
+        (499.0, "0.5 KB/s"), (790.0, "0.8 KB/s"), (70_870.0, "70.9 KB/s"),
+        (125_000.0, "125.0 KB/s"), (999_990.0, "1000.0 KB/s"),
+        (1_000_000.0, "1.0 MB/s"), (2_550_000.0, "2.6 MB/s")
+    ])
+    func singleDecimalUnits(bytes: Double, expected: String) {
+        #expect(TrafficRate.string(bytes, singleDecimal: true) == expected)
+    }
+
     @Test("下载、上传升降序及稳定的相同速率排序")
     func sorting() {
         let rows = [

@@ -92,9 +92,9 @@ struct CheckMenuBar {
 
     @MainActor private static func checkNetworkPanel(_ delegate: AppDelegate, monitor: TrafficMonitor) async throws {
         delegate.menuBarPreferences.appearance.mode = .iconOnly
-        delegate.preparePanel()
-        weak var controller = delegate.popover.contentViewController
-        delegate.popoverDidShow(Notification(name: NSPopover.didShowNotification, object: delegate.popover))
+        delegate.showPanel()
+        weak var controller = delegate.panel?.contentViewController
+        precondition(delegate.panel?.isVisible == true)
         precondition(delegate.networkPanel.isVisible && monitor.isMonitoring)
         func finished(_ state: AddressLookupState) -> Bool {
             switch state {
@@ -116,27 +116,96 @@ struct CheckMenuBar {
             return "暂不可用"
         }
         print("真实网络面板：本机地址 \(snapshot.localAddresses.count) 个，IPv4 \(status(snapshot.ipv4))，IPv6 \(status(snapshot.ipv6))")
-        delegate.popoverWillClose(Notification(name: NSPopover.willCloseNotification, object: delegate.popover))
-        delegate.popoverDidClose(Notification(name: NSPopover.didCloseNotification, object: delegate.popover))
+        autoreleasepool {
+            let window = delegate.panel!
+            precondition(window.styleMask == [.borderless] && window.isKeyWindow, "面板应是可接收键盘的无边框窗口：style=\(window.styleMask.rawValue), key=\(window.isKeyWindow), active=\(NSApp.isActive)")
+            precondition(window.frame.size == NSSize(width: PanelLayout.width, height: PanelLayout.height), "窗口不应再为箭头预留高度")
+            let escape = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [], timestamp: 0,
+                windowNumber: window.windowNumber, context: nil, characters: "\u{1B}",
+                charactersIgnoringModifiers: "\u{1B}", isARepeat: false, keyCode: 53)!
+            window.sendEvent(escape)
+        }
+        precondition(delegate.panel == nil, "Esc 应关闭面板")
         precondition(controller == nil && !monitor.isMonitoring && monitor.rows.isEmpty)
         precondition(!delegate.networkPanel.isVisible && delegate.networkPanel.snapshot == NetworkPanelSnapshot())
         // 强制刷新后立即关闭，验证真实请求取消后的回调不能重新填充面板。
-        delegate.preparePanel()
-        delegate.popoverDidShow(Notification(name: NSPopover.didShowNotification, object: delegate.popover))
+        delegate.showPanel()
         delegate.networkPanel.refreshAddresses(force: true)
         try await Task.sleep(for: .milliseconds(50))
-        delegate.popoverWillClose(Notification(name: NSPopover.willCloseNotification, object: delegate.popover))
-        delegate.popoverDidClose(Notification(name: NSPopover.didCloseNotification, object: delegate.popover))
+        delegate.closePanel()
         try await Task.sleep(for: .milliseconds(1300))
         precondition(delegate.networkPanel.snapshot == NetworkPanelSnapshot())
-        precondition(!monitor.isMonitoring && delegate.popover.contentViewController == nil)
-        print("真实网络面板关闭、快速重开、请求取消与视图释放验证通过")
+        precondition(!monitor.isMonitoring && delegate.panel?.contentViewController == nil)
+        delegate.showPanel()
+        delegate.togglePanel()
+        precondition(delegate.panel == nil && !monitor.isMonitoring, "再次点击菜单栏应关闭面板")
+        delegate.togglePanel()
+        precondition(delegate.panel?.isVisible == true, "快速重开应创建可见面板")
+        delegate.showSettings()
+        precondition(delegate.panel == nil && !monitor.isMonitoring && delegate.settingsWindow?.isVisible == true)
+        delegate.settingsWindow?.close()
+
+        delegate.showPanel()
+        autoreleasepool {
+            let other = NSWindow(contentRect: NSRect(x: 80, y: 80, width: 100, height: 100),
+                                 styleMask: [.titled], backing: .buffered, defer: false)
+            other.isReleasedWhenClosed = false
+            other.orderFront(nil)
+            defer { other.close() }
+            let click = NSEvent.mouseEvent(with: .leftMouseDown, location: NSPoint(x: 50, y: 50),
+                modifierFlags: [], timestamp: 0, windowNumber: other.windowNumber, context: nil,
+                eventNumber: 1, clickCount: 1, pressure: 1)!
+            NSApp.sendEvent(click)
+        }
+        precondition(delegate.panel == nil && !monitor.isMonitoring, "点击同应用的其他窗口应关闭面板")
+        for name in [NSApplication.didResignActiveNotification, NSApplication.didChangeScreenParametersNotification] {
+            delegate.showPanel()
+            NotificationCenter.default.post(name: name, object: NSApp)
+            precondition(delegate.panel == nil && !monitor.isMonitoring, "离开应用或屏幕变化应关闭面板")
+        }
+        let center = NSWorkspace.shared.notificationCenter
+        for name in [NSWorkspace.willSleepNotification, NSWorkspace.sessionDidResignActiveNotification,
+                     NSWorkspace.activeSpaceDidChangeNotification] {
+            delegate.showPanel()
+            center.post(name: name, object: nil)
+            precondition(delegate.panel == nil && !monitor.isMonitoring, "休眠、离开会话或切换空间应关闭面板")
+            center.post(name: NSWorkspace.didWakeNotification, object: nil)
+            center.post(name: NSWorkspace.sessionDidBecomeActiveNotification, object: nil)
+        }
+        print("无箭头窗口、Esc、外部点击、设置切换、休眠关闭、快速重开及真实采样清理验证通过")
         delegate.menuBarPreferences.appearance = MenuBarAppearance()
     }
 
-    @MainActor static func main() async throws {
+    @MainActor static func main() {
         _ = NSApplication.shared
+        Task { @MainActor in
+            do {
+                try await runChecks()
+                exit(0)
+            } catch {
+                FileHandle.standardError.write(Data("菜单栏检查失败：\(error)\n".utf8))
+                exit(1)
+            }
+        }
+        // 键盘焦点与激活通知依赖真实 AppKit 事件循环，不能只运行异步调度队列。
+        NSApp.run()
+    }
+
+    @MainActor private static func runChecks() async throws {
         try checkTextLayout()
+        let screen = NSRect(x: -1440, y: 30, width: 1440, height: 870)
+        for x in [-1440.0, -720.0, -20.0] {
+            let anchor = NSRect(x: x, y: 900, width: 20, height: 24)
+            let frame = MenuPanel.frame(below: anchor, visibleFrame: screen)
+            guard screen.contains(frame) else {
+                FileHandle.standardError.write(Data("面板定位超出菜单栏按钮所在屏幕的可见区域\n".utf8))
+                exit(1)
+            }
+            guard frame.maxY == anchor.minY - 2 else {
+                FileHandle.standardError.write(Data("面板与顶栏的间距应为 2 pt\n".utf8))
+                exit(1)
+            }
+        }
         let suite = "NetBar.menuBarCheck.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suite)!
         defer { defaults.removePersistentDomain(forName: suite) }
@@ -150,11 +219,11 @@ struct CheckMenuBar {
             NSStatusBar.system.removeStatusItem(item)
         }
         let button = item.button!
-        precondition(delegate.popover.contentViewController == nil)
+        precondition(delegate.panel?.contentViewController == nil)
         try await Task.sleep(for: .milliseconds(1400))
         precondition(button.toolTip?.contains("/s") == true, "真实网卡采样应更新菜单栏")
         print("真实菜单栏：\(button.toolTip!)")
-        precondition(delegate.popover.contentViewController == nil, "菜单栏刷新不应创建面板")
+        precondition(delegate.panel?.contentViewController == nil, "菜单栏刷新不应创建面板")
 
         // 检查真实窗口与按钮区域，不能用 length 属性代替系统最终占位。
         func occupiedWidth() -> CGFloat {
@@ -277,7 +346,7 @@ struct CheckMenuBar {
             precondition(!panel.isVisible && manager.target == nil, "关闭设置应关闭字体面板并清除目标")
         }
         precondition(delegate.settingsWindow == nil && releasedSettings == nil, "关闭设置应释放视图")
-        precondition(delegate.popover.contentViewController == nil)
+        precondition(delegate.panel?.contentViewController == nil)
         preferences.appearance = MenuBarAppearance()
 
         if CommandLine.arguments.contains("--network") {

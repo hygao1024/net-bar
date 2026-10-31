@@ -38,33 +38,24 @@ struct CheckPanelMemory {
         precondition((1...100).contains(cycles))
         let sampler = ProbeSampler()
         let monitor = TrafficMonitor(sampler: sampler)
-        #if BASELINE
-        let popover = NSPopover()
-        popover.contentViewController = NSHostingController(rootView:
-            TrafficView(monitor: monitor, loginItem: LoginItemController()))
-        #else
         let suite = "NetBar.panelMemoryCheck.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suite)!
         defer { defaults.removePersistentDomain(forName: suite) }
         let preferences = MenuBarPreferences(defaults: defaults)
         preferences.appearance.mode = .iconOnly
         let delegate = AppDelegate(monitor: monitor, menuBarPreferences: preferences)
-        let popover = delegate.popover
-        precondition(popover.contentViewController == nil, "首次点击前不应创建面板")
-        #endif
+        precondition(delegate.panel == nil, "首次点击前不应创建面板")
         try await Task.sleep(for: .milliseconds(200))
         report("启动未展开")
         precondition(sampler.samples == 0)
 
         for cycle in 1...cycles {
-            #if !BASELINE
             autoreleasepool { delegate.preparePanel() }
-            #endif
+            weak var previousWindow = delegate.panel
             weak var previousController: NSViewController?
-            autoreleasepool { previousController = popover.contentViewController }
-            #if !BASELINE
+            autoreleasepool { previousController = delegate.panel?.contentViewController }
             autoreleasepool {
-                let host = popover.contentViewController as! NSHostingController<TrafficView>
+                let host = delegate.panel!.contentViewController as! NSHostingController<TrafficView>
                 if cycle == 1 {
                     host.rootView.preferences.sort = .upload
                     host.rootView.preferences.ascending = true
@@ -73,12 +64,11 @@ struct CheckPanelMemory {
                     precondition(host.rootView.preferences.ascending)
                 }
             }
-            #endif
             monitor.start()
             try await Task.sleep(for: .milliseconds(350))
             precondition(monitor.rows.count == 60)
             autoreleasepool {
-                let view = popover.contentViewController!.view
+                let view = delegate.panel!.contentViewController!.view
                 let bounds = NSRect(x: 0, y: 0, width: PanelLayout.width, height: PanelLayout.height)
                 view.frame = bounds
                 view.layoutSubtreeIfNeeded()
@@ -87,28 +77,21 @@ struct CheckPanelMemory {
                 }
             }
             report("第\(cycle)次展开（离屏）")
-            #if BASELINE
-            monitor.stop()
-            #else
             autoreleasepool {
-                delegate.popoverWillClose(Notification(name: NSPopover.willCloseNotification, object: popover))
-                delegate.popoverDidClose(Notification(name: NSPopover.didCloseNotification, object: popover))
+                if cycle.isMultiple(of: 2) { delegate.closePanel() }
+                else { delegate.panel?.cancelOperation(nil) }
             }
-            emit("面板内容已清空：\(popover.contentViewController == nil)，isShown：\(popover.isShown)")
-            precondition(popover.contentViewController == nil)
-            #endif
+            precondition(delegate.panel == nil)
             let stoppedSamples = sampler.samples
             try await Task.sleep(for: .milliseconds(350))
             emit("停止状态：\(!monitor.isMonitoring)，行数：\(monitor.rows.count)，采样次数：\(stoppedSamples) → \(sampler.samples)")
             precondition(!monitor.isMonitoring && monitor.rows.isEmpty)
             precondition(sampler.samples == stoppedSamples, "关闭后不应继续采样")
-            #if !BASELINE
             emit("控制器已释放：\(previousController == nil)")
             precondition(previousController == nil, "关闭后控制器应释放")
-            #endif
+            precondition(previousWindow == nil, "关闭后面板窗口应释放")
             report("第\(cycle)次关闭")
         }
-        #if !BASELINE
         autoreleasepool {
             let source = NSImage(size: NSSize(width: 512, height: 512), flipped: false) { rect in
                 NSColor.systemBlue.setFill()
@@ -121,7 +104,6 @@ struct CheckPanelMemory {
             precondition(thumbnail.representations.count == 1 && bitmap.pixelsWide == 32 && bitmap.pixelsHigh == 32)
             precondition(bitmap.colorAt(x: 16, y: 16)!.alphaComponent > 0.99)
         }
-        #endif
         emit("面板生命周期验证通过")
     }
 

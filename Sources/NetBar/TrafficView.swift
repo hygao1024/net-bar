@@ -3,10 +3,16 @@ import SwiftUI
 import NetBarCore
 
 enum PanelLayout {
-    static let width: CGFloat = 380
-    static let height: CGFloat = 500
-    static let rateWidth: CGFloat = 80
+    static let width: CGFloat = 310
+    static let height: CGFloat = 542
+    static let inset: CGFloat = 8
+    static let listSide = width - 2 * inset
+    static let networkHeight: CGFloat = 135
+    static let cornerRadius: CGFloat = 12
+    static let rateWidth: CGFloat = 64
     static let columnSpacing: CGFloat = 6
+    static let rowHeight: CGFloat = 26
+    static let columnHeaderHeight = listSide - 10 * rowHeight
 }
 
 @MainActor
@@ -16,6 +22,7 @@ final class PanelPreferences: ObservableObject {
 }
 
 struct TrafficView: View {
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @ObservedObject var monitor: TrafficMonitor
     @ObservedObject var loginItem: LoginItemController
     @ObservedObject var preferences: PanelPreferences
@@ -28,6 +35,7 @@ struct TrafficView: View {
             updatedAt: monitor.updatedAt,
             errorMessage: monitor.errorMessage,
             network: networkPanel.snapshot,
+            reduceTransparency: reduceTransparency,
             refreshAddresses: { networkPanel.refreshAddresses(force: true) },
             sort: $preferences.sort,
             ascending: $preferences.ascending,
@@ -56,6 +64,7 @@ struct TrafficPanel: View {
     let updatedAt: Date?
     let errorMessage: String?
     var network = NetworkPanelSnapshot()
+    var reduceTransparency = false
     var refreshAddresses: () -> Void = {}
     var sort: Binding<TrafficSort> = .constant(.download)
     var ascending: Binding<Bool> = .constant(false)
@@ -71,6 +80,7 @@ struct TrafficPanel: View {
     var body: some View {
         VStack(spacing: 6) {
             NetworkAddressesView(snapshot: network, refresh: refreshAddresses)
+                .frame(height: PanelLayout.networkHeight, alignment: .top)
                 .modifier(PanelGroup())
             header
                 .modifier(PanelGroup())
@@ -80,13 +90,27 @@ struct TrafficPanel: View {
                 }
                 content
             }
+            .frame(height: PanelLayout.listSide)
             .modifier(PanelGroup())
             footer
                 .modifier(PanelGroup())
         }
-        .padding(8)
+        .padding(PanelLayout.inset)
         .frame(width: PanelLayout.width, height: PanelLayout.height)
-        .background(Color(nsColor: .windowBackgroundColor))
+        .background {
+            if reduceTransparency {
+                Color(nsColor: .windowBackgroundColor)
+            } else {
+                PanelBackdrop()
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
+            }
+        }
+        .clipShape(RoundedRectangle(cornerRadius: PanelLayout.cornerRadius))
+        .overlay {
+            RoundedRectangle(cornerRadius: PanelLayout.cornerRadius)
+                .strokeBorder(Color(nsColor: .separatorColor).opacity(0.7), lineWidth: 1)
+        }
     }
 
     private var header: some View {
@@ -133,7 +157,7 @@ struct TrafficPanel: View {
             sortButton("上传", column: .upload)
         }
         .padding(.horizontal, 10)
-        .frame(height: 28)
+        .frame(height: PanelLayout.columnHeaderHeight)
         .background(Color(nsColor: .textBackgroundColor).opacity(0.65))
         .background(Color(nsColor: .windowBackgroundColor))
     }
@@ -157,20 +181,31 @@ struct TrafficPanel: View {
         } else if rows.isEmpty {
             message(symbol: "network", title: "暂无联网进程", detail: "检测到网络活动后会自动显示") { EmptyView() }
         } else {
-            ScrollView {
-                LazyVStack(spacing: 0, pinnedViews: [.sectionHeaders]) {
-                    Section {
-                        ForEach(Array(sort.wrappedValue.sorted(rows, ascending: ascending.wrappedValue).enumerated()), id: \.element.id) { index, row in
-                            TrafficRow(row: row)
-                                .background(index.isMultiple(of: 2)
-                                    ? Color.clear
-                                    : Color.primary.opacity(0.025))
+            GeometryReader { viewport in
+                ScrollView {
+                    LazyVStack(spacing: 0, pinnedViews: [.sectionHeaders]) {
+                        Section {
+                            ForEach(Array(sort.wrappedValue.sorted(rows, ascending: ascending.wrappedValue).enumerated()), id: \.element.id) { index, row in
+                                GeometryReader { geometry in
+                                    let fits = geometry.frame(in: .named("trafficViewport")).maxY <= viewport.size.height
+                                    TrafficRow(row: row)
+                                        .background(index.isMultiple(of: 2)
+                                            ? Color.clear
+                                            : Color.primary.opacity(0.025))
+                                        .opacity(fits ? 1 : 0)
+                                        .allowsHitTesting(fits)
+                                        .accessibilityHidden(!fits)
+                                }
+                                .frame(height: PanelLayout.rowHeight)
+                            }
+                        } header: {
+                            // 表头与数据共用滚动区域，保持列宽一致。
+                            columnHeaders
                         }
-                    } header: {
-                        // 表头与数据共用滚动区域，滚动条显示或隐藏时列宽始终一致。
-                        columnHeaders
                     }
                 }
+                .scrollIndicators(.never)
+                .coordinateSpace(name: "trafficViewport")
             }
             .frame(maxHeight: .infinity)
         }
@@ -247,12 +282,25 @@ struct TrafficPanel: View {
     }
 }
 
+private struct PanelBackdrop: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSVisualEffectView {
+        let view = NSVisualEffectView()
+        view.material = .popover
+        view.blendingMode = .behindWindow
+        view.state = .active
+        return view
+    }
+
+    func updateNSView(_ nsView: NSVisualEffectView, context: Context) {}
+}
+
 private struct PanelGroup: ViewModifier {
     @Environment(\.colorSchemeContrast) private var contrast
 
     func body(content: Content) -> some View {
         content
             .background(Color(nsColor: .textBackgroundColor).opacity(0.65))
+            .background(Color(nsColor: .windowBackgroundColor))
             .clipShape(RoundedRectangle(cornerRadius: 8))
             .overlay {
                 RoundedRectangle(cornerRadius: 8)
@@ -277,15 +325,15 @@ private struct TrafficRow: View {
             rate(row.upload)
         }
         .padding(.horizontal, 10)
-        .frame(height: 26)
+        .frame(height: PanelLayout.rowHeight)
         .help("\(row.name)\n进程编号：\(row.pid)")
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(row.name)，进程编号 \(row.pid)")
-        .accessibilityValue("下载 \(TrafficRate.string(row.download))，上传 \(TrafficRate.string(row.upload))")
+        .accessibilityValue("下载 \(TrafficRate.string(row.download, singleDecimal: true))，上传 \(TrafficRate.string(row.upload, singleDecimal: true))")
     }
 
     private func rate(_ bytes: Double) -> some View {
-        let parts = TrafficRate.string(bytes).split(separator: " ", maxSplits: 1)
+        let parts = TrafficRate.string(bytes, singleDecimal: true).split(separator: " ", maxSplits: 1)
         return HStack(alignment: .firstTextBaseline, spacing: 4) {
             Text(String(parts[0]))
                 .font(.system(size: 12))
