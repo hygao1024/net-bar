@@ -8,8 +8,8 @@
     <key>CFBundleDisplayName</key><string>NetBar</string>
     <key>CFBundlePackageType</key><string>APPL</string>
     <key>CFBundleIconFile</key><string>AppIcon</string>
-    <key>CFBundleShortVersionString</key><string>1.2.0</string>
-    <key>CFBundleVersion</key><string>6</string>
+    <key>CFBundleShortVersionString</key><string>1.3.0</string>
+    <key>CFBundleVersion</key><string>7</string>
     <key>SUPublicEDKey</key><string>gUi4mUzcBEoc1jA4g2RvXgYGqIsEpC1g6LKJwOxbaG4=</string>
     <key>SUFeedURL</key><string>https://github.com/hygao1024/net-bar/releases/latest/download/appcast.xml</string>
     <key>SUEnableAutomaticChecks</key><true/>
