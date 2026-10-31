@@ -43,16 +43,19 @@ bash scripts/prepare-release.sh v1.2.0
 
 脚本校验应用签名、磁盘映像、清单签名、版本与包签名。目录已存在时拒绝覆盖，需先检查并移走旧产物再重试。首次依赖解析需要访问 GitHub；本地打包使用钥匙串，CI（持续集成）通过标准输入读取 Secret。
 
-`python3 scripts/check-release-tools.py` 用隔离的 GitHub 命令替身检查标签不一致、构建号与版本倒退、公钥更换等拒绝路径；当前版本的发布目录存在时，同时对真实产物执行错误清单和错误公钥的负向检查，不修改正式配置或产物。
+`python3 scripts/check-release-tools.py` 用隔离的 GitHub 命令替身检查标签不一致、构建号与版本倒退、公钥更换等拒绝路径，并在临时 Git 仓库检查附注说明、轻量标签、空白说明和缺失标签；当前版本的发布目录存在时，同时对真实产物执行错误清单和错误公钥的负向检查，不修改正式配置或产物。
 
 ## GitHub 发布
 
-`.github/workflows/release.yml` 在推送 `v*` 标签时运行。确认变更已提交并经过检查后，再明确执行发布：
+`.github/workflows/release.yml` 在推送 `v*` 标签时运行。发布说明以附注标签中的文本为准，工作流通过 `--notes-from-tag` 写入 GitHub Release 正文，不再自动生成说明。工作流获取完整历史与标签，在构建前拒绝轻量标签、缺失标签和空白说明，避免 GitHub CLI 将提交消息用作发布说明。
+
+先将经过确认的版本说明保存为 UTF-8 Markdown 文件，可包含版本标题、变更列表和安装限制。确认版本与构建号已递增、变更已提交并经过检查后，再明确执行发布。以下以待发布的 `v1.3.0` 为例，将文件路径替换为实际说明文件：
 
 ```bash
-git tag v1.2.0
+git tag -a v1.3.0 -F /path/to/release-notes.md
+python3 scripts/check-release-notes.py v1.3.0
 git push origin main
-git push origin v1.2.0
+git push origin v1.3.0
 ```
 
 工作流先验证标签、版本递增及公钥连续性，再测试和打包；在草稿 Release（版本发布）中上传两份附件，全部成功后才公开并标记为最新版本。`prepare-release.sh` 本身不会推送标签或发布。失败时检查 Actions 日志；若已创建草稿而公开失败，确认附件完整后再公开草稿，不要重建或覆盖已经公开的版本附件。

@@ -12,6 +12,8 @@ jobs:
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - name: 验证版本与发布密钥
         env:
           SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
@@ -23,6 +25,7 @@ jobs:
           test "$RELEASE_TAG" = "v$version"
           /usr/libexec/PlistBuddy -c 'Print :SUPublicEDKey' Resources/Info.plist > /dev/null
           python3 scripts/check-release-version.py "$RELEASE_TAG"
+          python3 scripts/check-release-notes.py "$RELEASE_TAG"
       - name: 核心测试
         run: swift test
       - name: 构建并签名更新产物
@@ -35,6 +38,6 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
-          gh release create "$RELEASE_TAG" --verify-tag --draft --title "NetBar $RELEASE_TAG" --generate-notes \
+          gh release create "$RELEASE_TAG" --verify-tag --draft --title "NetBar $RELEASE_TAG" --notes-from-tag \
             "dist/$RELEASE_TAG/NetBar-$RELEASE_TAG-arm64.dmg" "dist/$RELEASE_TAG/appcast.xml"
           gh release edit "$RELEASE_TAG" --draft=false --latest
