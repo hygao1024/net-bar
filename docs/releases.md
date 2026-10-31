@@ -52,11 +52,13 @@ bash scripts/prepare-release.sh v1.2.0
 先将经过确认的版本说明保存为 UTF-8 Markdown 文件，可包含版本标题、变更列表和安装限制。确认版本与构建号已递增、变更已提交并经过检查后，再明确执行发布。以下以待发布的 `v1.3.0` 为例，将文件路径替换为实际说明文件：
 
 ```bash
-git tag -a v1.3.0 -F /path/to/release-notes.md
+git tag -a v1.3.0 --cleanup=verbatim -F /path/to/release-notes.md
 python3 scripts/check-release-notes.py v1.3.0
 git push origin main
 git push origin v1.3.0
 ```
+
+必须保留 `--cleanup=verbatim`，否则 Git 默认会将以 `#` 开头的 Markdown 标题当作注释删除。
 
 工作流先验证标签、版本递增及公钥连续性，再测试和打包；在草稿 Release（版本发布）中上传两份附件，全部成功后才公开并标记为最新版本。`prepare-release.sh` 本身不会推送标签或发布。失败时检查 Actions 日志；若已创建草稿而公开失败，确认附件完整后再公开草稿，不要重建或覆盖已经公开的版本附件。
 

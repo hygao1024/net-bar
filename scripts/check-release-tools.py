@@ -52,7 +52,9 @@ print(os.environ['TEST_RELEASES'] if sys.argv[1] == 'release' else os.environ['T
 
     git("init", "--quiet")
     git("commit", "--allow-empty", "-m", "测试基线")
-    git("tag", "-a", "v1.2.0", "-m", "NetBar v1.2.0\n\n- 新增自动更新。\n- 优化设置。")
+    notes = "## NetBar v1.2.0\n\n### 新增功能\n\n- 新增自动更新。\n- 优化设置。\n"
+    git("tag", "-a", "v1.2.0", "--cleanup=verbatim", "-m", notes)
+    assert git("for-each-ref", "refs/tags/v1.2.0", "--format=%(contents)").strip() == notes.strip()
     git("tag", "v1.2.1")
     git("tag", "-a", "v1.2.2", "--cleanup=verbatim", "-m", " \n\t\n")
     for name, tag, error in [
