@@ -2,101 +2,70 @@ import AppKit
 import SwiftUI
 import NetBarCore
 
+enum SettingsPage: String, CaseIterable, Identifiable {
+    case menuBar, updates
+
+    var id: Self { self }
+    var title: String { self == .menuBar ? "菜单栏" : "软件更新" }
+    var symbol: String { self == .menuBar ? "menubar.rectangle" : "arrow.triangle.2.circlepath" }
+}
+
+@MainActor
+private final class SettingsNavigation: ObservableObject {
+    @Published var page: SettingsPage = .menuBar {
+        willSet { if newValue != page { willSelect?() } }
+    }
+    var willSelect: (() -> Void)?
+}
+
 /// 页面与字体面板共用一个窗口生命周期；更新会话仍由应用持有。
 @MainActor
-final class SettingsController: NSTabViewController, NSFontChanging {
-    static let contentSize = NSSize(width: 440, height: 418)
+final class SettingsController: NSViewController, NSFontChanging {
+    static let windowSize = NSSize(width: 720, height: 580)
     private let preferences: MenuBarPreferences
+    private let updates: UpdateController
+    private let navigation = SettingsNavigation()
+
+    var selectedPage: SettingsPage {
+        get { navigation.page }
+        set { navigation.page = newValue }
+    }
 
     init(preferences: MenuBarPreferences, updates: UpdateController) {
         self.preferences = preferences
+        self.updates = updates
         super.init(nibName: nil, bundle: nil)
-        tabStyle = .toolbar
-        transitionOptions = []
-        canPropagateSelectedChildViewControllerTitle = false
-        let menuBar = NSHostingController(rootView: SettingsPageContent {
-            MenuBarSettingsView(preferences: preferences,
-                                chooseFont: { [weak self] in self?.showFontPicker() },
-                                closeFontPicker: { [weak self] in self?.closeFontPicker() })
-        })
-        let update = NSHostingController(rootView: SettingsPageContent {
-            UpdateSettingsView(updates: updates)
-        })
-        for (controller, title, symbol) in [
-            (menuBar as NSViewController, "菜单栏", "menubar.rectangle"),
-            (update as NSViewController, "软件更新", "arrow.triangle.2.circlepath")
-        ] {
-            let item = NSTabViewItem(viewController: controller)
-            item.label = title
-            item.image = NSImage(systemSymbolName: symbol, accessibilityDescription: title)
-            addTabViewItem(item)
-        }
+        navigation.willSelect = { [weak self] in self?.closeFontPicker() }
     }
 
     required init?(coder: NSCoder) { fatalError("不支持从归档创建设置窗口") }
+
+    override func loadView() {
+        let host = NSHostingController(rootView: SettingsRootView(
+            navigation: navigation, preferences: preferences, updates: updates,
+            chooseFont: { [weak self] in self?.showFontPicker() },
+            closeFontPicker: { [weak self] in self?.closeFontPicker() }))
+        addChild(host)
+        view = host.view
+    }
 
     static func makeWindow(preferences: MenuBarPreferences, updates: UpdateController) -> NSWindow {
         let controller = SettingsController(preferences: preferences, updates: updates)
         let window = NSWindow(contentViewController: controller)
         window.title = "NetBar 设置"
         window.titleVisibility = .hidden
-        window.styleMask = [.titled, .closable, .miniaturizable]
-        window.toolbarStyle = .unifiedCompact
-        window.toolbar?.displayMode = .iconOnly
-        window.toolbar?.allowsUserCustomization = false
-        window.setContentSize(contentSize)
+        window.styleMask = [.titled, .closable, .fullSizeContentView]
+        window.titlebarAppearsTransparent = true
+        window.isMovableByWindowBackground = true
+        window.setFrame(NSRect(origin: window.frame.origin, size: windowSize), display: false)
         window.isReleasedWhenClosed = false
         return window
-    }
-
-    override func toolbarDefaultItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
-        [.flexibleSpace] + super.toolbarDefaultItemIdentifiers(toolbar) + [.flexibleSpace]
-    }
-
-    override func toolbar(_ toolbar: NSToolbar, itemForItemIdentifier identifier: NSToolbarItem.Identifier,
-                          willBeInsertedIntoToolbar flag: Bool) -> NSToolbarItem? {
-        guard let item = super.toolbar(toolbar, itemForItemIdentifier: identifier, willBeInsertedIntoToolbar: flag) else {
-            return nil
-        }
-        guard let index = tabViewItems.firstIndex(where: { ($0.identifier as? String) == identifier.rawValue }) else {
-            return item
-        }
-        let button = NSButton(title: item.label, target: self, action: #selector(selectPage(_:)))
-        button.image = item.image?.withSymbolConfiguration(.init(pointSize: 13, weight: .regular))
-        button.imagePosition = .imageLeading
-        button.font = .systemFont(ofSize: 13)
-        button.bezelStyle = .texturedRounded
-        button.isBordered = false
-        button.setButtonType(.pushOnPushOff)
-        button.tag = index
-        button.state = selectedTabViewItemIndex == index ? .on : .off
-        button.toolTip = item.label
-        item.view = button
-        return item
-    }
-
-    @objc private func selectPage(_ sender: NSButton) {
-        selectedTabViewItemIndex = sender.tag
-        sender.state = .on
-    }
-
-    override func tabView(_ tabView: NSTabView, didSelect tabViewItem: NSTabViewItem?) {
-        super.tabView(tabView, didSelect: tabViewItem)
-        for item in view.window?.toolbar?.items ?? [] {
-            guard let button = item.view as? NSButton else { continue }
-            button.state = button.tag == selectedTabViewItemIndex ? .on : .off
-        }
-    }
-
-    override func tabView(_ tabView: NSTabView, willSelect tabViewItem: NSTabViewItem?) {
-        closeFontPicker()
-        super.tabView(tabView, willSelect: tabViewItem)
     }
 
     override var acceptsFirstResponder: Bool { true }
 
     func showFontPicker() {
-        guard selectedTabViewItemIndex == 0, preferences.appearance.mode.showsSpeed,
+        guard selectedPage == .menuBar, preferences.appearance.mode.showsSpeed,
               let window = view.window else { return }
         window.makeFirstResponder(self)
         let manager = NSFontManager.shared
@@ -107,7 +76,7 @@ final class SettingsController: NSTabViewController, NSFontChanging {
 
     func changeFont(_ sender: NSFontManager?) {
         guard NSFontManager.shared.target === self,
-              selectedTabViewItemIndex == 0, preferences.appearance.mode.showsSpeed,
+              selectedPage == .menuBar, preferences.appearance.mode.showsSpeed,
               let sender else { return }
         preferences.appearance.fontName = sender.convert(selectedFont).fontName
     }
@@ -130,20 +99,98 @@ final class SettingsController: NSTabViewController, NSFontChanging {
     }
 }
 
-private struct SettingsPageContent<Content: View>: View {
-    @ViewBuilder var content: Content
+private struct SettingsRootView: View {
+    @ObservedObject var navigation: SettingsNavigation
+    @ObservedObject var preferences: MenuBarPreferences
+    @ObservedObject var updates: UpdateController
+    let chooseFont: () -> Void
+    let closeFontPicker: () -> Void
 
     var body: some View {
-        ScrollView {
-            content.padding(20)
-                .frame(maxWidth: .infinity, alignment: .topLeading)
+        HStack(spacing: 0) {
+            VStack(spacing: 0) {
+                List(selection: Binding<SettingsPage?>(
+                    get: { navigation.page },
+                    set: { if let page = $0 { navigation.page = page } })) {
+                    ForEach(SettingsPage.allCases) { page in
+                        Label {
+                            Text(page.title).font(.system(size: 13))
+                        } icon: {
+                            Image(systemName: page.symbol)
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundStyle(.white)
+                                .frame(width: 22, height: 22)
+                                .background((page == .menuBar ? Color.blue : Color.gray).gradient,
+                                            in: RoundedRectangle(cornerRadius: 5))
+                                .accessibilityHidden(true)
+                        }
+                        .padding(.vertical, 2)
+                        .tag(page)
+                    }
+                }
+                .listStyle(.sidebar)
+                .scrollContentBackground(.hidden)
+                .tint(.blue)
+                .accessibilityLabel("设置页面")
+                Text("版本 \(updates.version)")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                    .padding(.bottom, 20)
+            }
+            .padding(.top, 48)
+            .frame(width: 200)
+            .background(SettingsSidebarMaterial())
+
+            Divider()
+
+            VStack(spacing: 0) {
+                HStack {
+                    Text(navigation.page.title)
+                        .font(.system(size: 17, weight: .semibold))
+                        .accessibilityAddTraits(.isHeader)
+                    Spacer()
+                }
+                .padding(.horizontal, 20)
+                .frame(height: 52)
+                ScrollView {
+                    Group {
+                        switch navigation.page {
+                        case .menuBar:
+                            MenuBarSettingsView(preferences: preferences, chooseFont: chooseFont,
+                                                closeFontPicker: closeFontPicker)
+                        case .updates:
+                            UpdateSettingsView(updates: updates)
+                        }
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.top, 8)
+                    .padding(.bottom, 20)
+                    .frame(maxWidth: .infinity, alignment: .topLeading)
+                }
+                .id(navigation.page)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+            .background(Color(nsColor: .textBackgroundColor).opacity(0.35))
+            .background(Color(nsColor: .windowBackgroundColor))
         }
         .font(.system(size: 13))
         .toggleStyle(.switch)
-        .controlSize(.small)
-        .background(Color(nsColor: .windowBackgroundColor))
-        .frame(width: SettingsController.contentSize.width, height: SettingsController.contentSize.height)
+        .controlSize(.regular)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .ignoresSafeArea()
     }
+}
+
+private struct SettingsSidebarMaterial: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSVisualEffectView {
+        let view = NSVisualEffectView()
+        view.material = .sidebar
+        view.blendingMode = .behindWindow
+        view.state = .followsWindowActiveState
+        return view
+    }
+
+    func updateNSView(_ nsView: NSVisualEffectView, context: Context) {}
 }
 
 private struct SettingsSection<Content: View>: View {
@@ -152,7 +199,8 @@ private struct SettingsSection<Content: View>: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(title).font(.system(size: 12, weight: .medium))
+            Text(title).font(.system(size: 13, weight: .semibold))
+                .padding(.leading, 10)
             content
         }
     }
@@ -163,9 +211,10 @@ private struct SettingsGroup<Content: View>: View {
 
     var body: some View {
         VStack(spacing: 0) { content }
-            .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 8))
+            .background(Color(nsColor: .controlBackgroundColor).opacity(0.4),
+                        in: RoundedRectangle(cornerRadius: 8))
             .overlay(RoundedRectangle(cornerRadius: 8)
-                .strokeBorder(Color(nsColor: .separatorColor).opacity(0.4), lineWidth: 0.5))
+                .strokeBorder(Color(nsColor: .separatorColor).opacity(0.5), lineWidth: 0.5))
     }
 }
 
@@ -188,8 +237,8 @@ private struct SettingsRow<Control: View>: View {
             control
         }
         .padding(.horizontal, 12)
-        .padding(.vertical, 7)
-        .frame(minHeight: 34)
+        .padding(.vertical, 8)
+        .frame(minHeight: 38)
     }
 }
 
@@ -205,30 +254,39 @@ struct MenuBarSettingsView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            VStack(spacing: 5) {
-                Image(nsImage: MenuBarPresentation.image(
-                    state: .available(NetworkSpeed(download: 2_560_000, upload: 128_600)),
-                    appearance: preferences.appearance))
-                    .accessibilityLabel(preferences.appearance.mode.showsSpeed
-                                         ? "菜单栏样式预览，上排上传，下排下载" : "菜单栏样式预览，仅显示图标")
-                Text("菜单栏预览").font(.system(size: 11)).foregroundStyle(.secondary)
-            }
-            .frame(maxWidth: .infinity)
-            .frame(height: 56)
-            .background(Color(nsColor: .quaternaryLabelColor).opacity(0.35), in: RoundedRectangle(cornerRadius: 8))
-
+        VStack(alignment: .leading, spacing: 20) {
             SettingsSection(title: "显示内容") {
-                Picker("显示内容", selection: Binding(
-                    get: { preferences.appearance.mode },
-                    set: { closeFontPicker(); preferences.appearance.mode = $0 })) {
-                    Text("图标与网速").tag(MenuBarDisplayMode.iconAndSpeed)
-                    Text("仅网速").tag(MenuBarDisplayMode.speedOnly)
-                    Text("仅图标").tag(MenuBarDisplayMode.iconOnly)
+                SettingsGroup {
+                    HStack(spacing: 16) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("菜单栏预览").font(.system(size: 13, weight: .medium))
+                            Text("调整后即时生效").font(.system(size: 11)).foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Image(nsImage: MenuBarPresentation.image(
+                            state: .available(NetworkSpeed(download: 2_560_000, upload: 128_600)),
+                            appearance: preferences.appearance))
+                            .padding(.horizontal, 18)
+                            .frame(height: 44)
+                            .background(Color(nsColor: .quaternaryLabelColor).opacity(0.25),
+                                        in: RoundedRectangle(cornerRadius: 8))
+                            .accessibilityLabel(preferences.appearance.mode.showsSpeed
+                                ? "菜单栏样式预览，上排上传，下排下载" : "菜单栏样式预览，仅显示图标")
+                    }
+                    .padding(12)
+                    Divider().padding(.horizontal, 12)
+                    Picker("显示内容", selection: Binding(
+                        get: { preferences.appearance.mode },
+                        set: { closeFontPicker(); preferences.appearance.mode = $0 })) {
+                        Text("图标与网速").tag(MenuBarDisplayMode.iconAndSpeed)
+                        Text("仅网速").tag(MenuBarDisplayMode.speedOnly)
+                        Text("仅图标").tag(MenuBarDisplayMode.iconOnly)
+                    }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+                    .accessibilityLabel("菜单栏显示内容")
+                    .padding(12)
                 }
-                .pickerStyle(.segmented)
-                .labelsHidden()
-                .accessibilityLabel("菜单栏显示内容")
             }
 
             SettingsSection(title: "网速样式") {
@@ -236,11 +294,11 @@ struct MenuBarSettingsView: View {
                     SettingsRow(title: "显示方向箭头") {
                         Toggle("显示方向箭头", isOn: $preferences.appearance.showsArrows).labelsHidden()
                     }
-                    Divider().padding(.leading, 12)
+                    Divider().padding(.horizontal, 12)
                     SettingsRow(title: "简洁单位", detail: "MB/s → M") {
                         Toggle("简洁单位", isOn: $preferences.appearance.compactUnits).labelsHidden()
                     }
-                    Divider().padding(.leading, 12)
+                    Divider().padding(.horizontal, 12)
                     SettingsRow(title: "小数位数") {
                         Picker("小数位数", selection: $preferences.appearance.decimalPlaces) {
                             Text("0 位").tag(0)
@@ -248,9 +306,9 @@ struct MenuBarSettingsView: View {
                             Text("2 位").tag(2)
                         }
                         .labelsHidden()
-                        .frame(width: 72)
+                        .frame(width: 86)
                     }
-                    Divider().padding(.leading, 12)
+                    Divider().padding(.horizontal, 12)
                     SettingsRow(title: "字体") {
                         Text(fontLabel).foregroundStyle(.secondary)
                             .lineLimit(1).truncationMode(.middle).help(fontLabel)
@@ -264,7 +322,7 @@ struct MenuBarSettingsView: View {
                         .fixedSize()
                         .accessibilityLabel("选择菜单栏字体")
                     }
-                    Divider().padding(.leading, 12)
+                    Divider().padding(.horizontal, 12)
                     SettingsRow(title: "字号") {
                         Text("\(preferences.appearance.fontSize, specifier: "%.1f") pt").monospacedDigit()
                         Stepper("字号", value: $preferences.appearance.fontSize,
@@ -305,7 +363,7 @@ struct UpdateSettingsView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 20) {
             HStack(spacing: 10) {
                 Image(nsImage: appIcon).accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 3) {
@@ -335,7 +393,7 @@ struct UpdateSettingsView: View {
                             .disabled(!updates.canCheck)
                             .fixedSize()
                     }
-                    .padding(12)
+                    .padding(16)
                 }
                 if let date = updates.lastCheck {
                     Text("上次检查：\(date.formatted(date: .abbreviated, time: .shortened))")
@@ -350,7 +408,7 @@ struct UpdateSettingsView: View {
                             get: { updates.automaticChecks }, set: { updates.setAutomaticChecks($0) }))
                             .labelsHidden()
                     }
-                    Divider().padding(.leading, 12)
+                    Divider().padding(.horizontal, 12)
                     SettingsRow(title: "自动下载并安装", detail: "后台下载，退出 NetBar 时安装") {
                         Toggle("自动下载并安装", isOn: Binding(
                             get: { updates.automaticDownloads }, set: { updates.setAutomaticDownloads($0) }))

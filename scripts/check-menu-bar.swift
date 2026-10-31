@@ -300,22 +300,32 @@ struct CheckMenuBar {
             let window = delegate.settingsWindow!
             releasedSettings = window.contentViewController
             let controller = window.contentViewController as! SettingsController
-            precondition(window.toolbar?.items.filter { $0.label == "菜单栏" || $0.label == "软件更新" }.count == 2,
-                         "设置应使用包含两个页面的真实工具栏")
+            window.contentView?.layoutSubtreeIfNeeded()
+            RunLoop.main.run(until: Date().addingTimeInterval(0.1))
+            @MainActor func findSidebar(_ view: NSView) -> NSTableView? {
+                if let table = view as? NSTableView { return table }
+                return view.subviews.lazy.compactMap { findSidebar($0) }.first
+            }
+            guard let sidebar = findSidebar(controller.view) else {
+                preconditionFailure("设置窗口缺少原生侧栏列表")
+            }
+            precondition(sidebar.numberOfRows == 2 && sidebar.selectedRow == 0,
+                         "侧栏应展示两个页面并默认选中菜单栏")
             let originalSize = window.frame.size
-            let navigation = window.toolbar!.items.compactMap { $0.view as? NSButton }
-            precondition(navigation.count == 2 && navigation.allSatisfy { !$0.title.isEmpty && $0.image != nil },
-                         "紧凑导航应同时保留文字与图标")
-            let menuButton = navigation.first { $0.tag == 0 }!
-            let updateButton = navigation.first { $0.tag == 1 }!
-            updateButton.performClick(nil)
-            precondition(controller.selectedTabViewItemIndex == 1 && updateButton.state == .on && menuButton.state == .off,
-                         "点击更新导航应切页并同步选中状态")
-            updateButton.performClick(nil)
-            precondition(updateButton.state == .on, "重复点击当前页不能取消选中")
+            precondition(originalSize == SettingsController.windowSize, "设置窗口尺寸应包含标题栏：\(originalSize)")
+            @MainActor func selectPage(_ row: Int) {
+                sidebar.selectRowIndexes(IndexSet(integer: row), byExtendingSelection: false)
+                RunLoop.main.run(until: Date().addingTimeInterval(0.1))
+            }
+            selectPage(1)
+            precondition(controller.selectedPage == .updates && sidebar.selectedRow == 1,
+                         "选择侧栏更新项应切页并同步选中状态")
+            selectPage(1)
+            precondition(controller.selectedPage == .updates && sidebar.selectedRow == 1,
+                         "重复选择当前页不能取消选中")
             precondition(window.frame.size == originalSize, "切换页面不应改变窗口尺寸")
-            menuButton.performClick(nil)
-            precondition(controller.selectedTabViewItemIndex == 0 && menuButton.state == .on && updateButton.state == .off)
+            selectPage(0)
+            precondition(controller.selectedPage == .menuBar && sidebar.selectedRow == 0)
             controller.showFontPicker()
             let manager = NSFontManager.shared
             let panel = manager.fontPanel(false)!
@@ -327,14 +337,14 @@ struct CheckMenuBar {
             precondition(preferences.appearance.fontName == "Menlo-Bold", "原生字体面板选择应即时生效")
             precondition(preferences.appearance.fontSize == originalFontSize, "字体面板不应绕过字号约束")
             precondition(MenuBarPreferences(defaults: defaults).appearance == preferences.appearance)
-            controller.selectedTabViewItemIndex = 1
+            selectPage(1)
             precondition(!panel.isVisible && manager.target == nil, "切页应关闭字体面板并清除目标")
             let savedFont = preferences.appearance.fontName
             controller.changeFont(manager)
             precondition(preferences.appearance.fontName == savedFont, "切页后的字体回调不能继续修改设置")
             controller.showFontPicker()
             precondition(!panel.isVisible, "软件更新页不能打开菜单栏字体面板")
-            controller.selectedTabViewItemIndex = 0
+            selectPage(0)
             preferences.appearance.mode = .iconOnly
             controller.showFontPicker()
             precondition(!panel.isVisible, "仅图标模式不能打开字体面板")

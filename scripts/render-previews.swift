@@ -47,7 +47,7 @@ struct RenderPreviews {
                 ("long-message", .unavailable(String(repeating: "更新服务暂不可用，请稍后重试或前往发布页下载安装。", count: 6)))
             ]
             for (name, status) in updateStates {
-                try renderSettings(preferences: preferences, status: status, page: 1,
+                try renderSettings(preferences: preferences, status: status, page: .updates,
                            name: "\(mode)-updates-\(name)", dark: dark, output: output)
             }
             preferences.appearance.mode = .iconAndSpeed
@@ -107,14 +107,14 @@ struct RenderPreviews {
     }
 
     @MainActor private static func renderSettings(preferences: MenuBarPreferences,
-                                                  status: UpdateController.Status = .idle, page: Int = 0,
+                                                  status: UpdateController.Status = .idle, page: SettingsPage = .menuBar,
                                                   name: String, dark: Bool, output: URL) throws {
         NSApp.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
         let window = SettingsController.makeWindow(preferences: preferences, updates: UpdateController(preview: status))
         window.appearance = NSApp.appearance
         let controller = window.contentViewController as! SettingsController
-        controller.selectedTabViewItemIndex = page
-        // 同时渲染真实标题栏与工具栏，避免预览与实际导航各维护一套实现。
+        controller.selectedPage = page
+        // 同时渲染真实标题栏与侧栏，避免预览与实际导航各维护一套实现。
         let view = window.contentView!.superview!
         view.layoutSubtreeIfNeeded()
         RunLoop.main.run(until: Date().addingTimeInterval(0.1))
